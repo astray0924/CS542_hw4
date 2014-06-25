@@ -90,7 +90,7 @@ public class SCC {
 		engine.setVertexDataConverter(new VertexInfoConverter());
 		engine.setEdataConverter(new EdgeValueConverter());
 		engine.setEnableScheduler(true);
-		engine.run(forward, 5);
+		engine.run(forward, 1000);
 
 		engine.run(new GraphDebug(), 1);
 		// GraphChiEngine<VertexInfo, EdgeValue> engine = null;
