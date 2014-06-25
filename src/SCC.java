@@ -18,8 +18,8 @@ import edu.cmu.graphchi.engine.GraphChiEngine;
 import edu.cmu.graphchi.engine.VertexInterval;
 import edu.cmu.graphchi.preprocessing.EdgeProcessor;
 import edu.cmu.graphchi.preprocessing.FastSharder;
+import edu.cmu.graphchi.preprocessing.VertexIdTranslate;
 import edu.cmu.graphchi.preprocessing.VertexProcessor;
-import edu.cmu.graphchi.util.LabelAnalysis;
 
 public class SCC {
 
@@ -30,7 +30,7 @@ public class SCC {
 	public static boolean firstIteration = true;
 	public static boolean remainingVertices = true;
 
-	// public static GraphChiEngine<SCCInfo, BiDirLabel> engine = null;
+	public static GraphChiEngine<VertexValue, EdgeValue> engine = null;
 
 	/**
 	 * Initialize the sharder-program.
@@ -40,13 +40,13 @@ public class SCC {
 	 * @return
 	 * @throws java.io.IOException
 	 */
-	protected static FastSharder<VertexInfo, EdgeValue> createSharder(
+	protected static FastSharder<VertexValue, EdgeValue> createSharder(
 			String graphName, int numShards) throws IOException {
-		return new FastSharder<VertexInfo, EdgeValue>(graphName, numShards,
-				new VertexProcessor<VertexInfo>() {
-					public VertexInfo receiveVertexValue(int vertexId,
+		return new FastSharder<VertexValue, EdgeValue>(graphName, numShards,
+				new VertexProcessor<VertexValue>() {
+					public VertexValue receiveVertexValue(int vertexId,
 							String token) {
-						return new VertexInfo();
+						return new VertexValue();
 					}
 				}, new EdgeProcessor<EdgeValue>() {
 					public EdgeValue receiveEdge(int from, int to, String token) {
@@ -80,70 +80,130 @@ public class SCC {
 		}
 
 		/* Run GraphChi ... */
-		GraphChiEngine<VertexInfo, EdgeValue> engine = null;
-		while (SCC.remainingVertices) {
-			System.out.println("Starting Superstep: " + SCC.superstep + "\n");
-			SCC.superstep++;
-			SCC.remainingVertices = false;
+		SCCForward forward = new SCCForward();
+		engine = new GraphChiEngine<VertexValue, EdgeValue>(baseFilename,
+				nShards);
+		engine.setVertexDataConverter(new VertexInfoConverter());
+		engine.setEdataConverter(new EdgeValueConverter());
+		engine.setEnableScheduler(true);
+		engine.run(forward, 1);
 
-			SCCForward forward = new SCCForward();
-			engine = new GraphChiEngine<VertexInfo, EdgeValue>(baseFilename,
-					nShards);
-			engine.setVertexDataConverter(new VertexInfoConverter());
-			engine.setEdataConverter(new EdgeValueConverter());
-			engine.setEnableScheduler(true);
-			engine.run(forward, 1000);
-
-			// if (SCC.remainingVertices) {
-			// System.out.println("Starting Backward \n");
-			//
-			// SCCBackward backward = new SCCBackward();
-			// GraphChiEngine<SCCInfo, BiDirLabel> engine2 = new
-			// GraphChiEngine<SCCInfo, BiDirLabel>(
-			// baseFilename, nShards);
-			// engine2.setVertexDataConverter(new SCCInfoConverter());
-			// engine2.setEdataConverter(new BiDirLabelConverter());
-			// engine2.setEnableScheduler(true);
-			// // engine.setSaveEdgefilesAfterInmemmode(true);
-			// engine2.run(backward, 1);
-			//
-			// int origNumShards = engine2.getIntervals().size();
-			//
-			// if (origNumShards > 1) {
-			// // TODO: Contract deleted edges
-			// }
-			// }
-		}
-
-		// logger.info("Ready. Going to output...");
+		engine.run(new GraphDebug(), 1);
+		// GraphChiEngine<VertexInfo, EdgeValue> engine = null;
+		// while (SCC.remainingVertices) {
+		// System.out.println("Starting Superstep: " + SCC.superstep + "\n");
+		// SCC.superstep++;
+		// SCC.remainingVertices = false;
 		//
-		// /* Process output. The output file has format <vertex-id,
-		// component-id> */
-		// LabelAnalysis.computeLabels(baseFilename, engine.numVertices(),
-		// engine.getVertexIdTranslate());
-		//
-		// logger.info("Finished. See file: " + baseFilename + ".components");
+		// SCCForward forward = new SCCForward();
+		// engine = new GraphChiEngine<VertexInfo, EdgeValue>(baseFilename,
+		// nShards);
+		// engine.setVertexDataConverter(new VertexInfoConverter());
+		// engine.setEdataConverter(new EdgeValueConverter());
+		// engine.setEnableScheduler(true);
+		// engine.run(forward, 1000);
 
-		/*
-		 * [참고] Translating between the internal ids and original ids is easy
-		 * using the VertexIdTranslate class
-		 */
-		// VertexIdTranslate trans = engine.getVertexIdTranslate();
-		// for(int i=0; i < engine.numVertices(); i++) {
-		// System.out.println("Internal id " + i + " = original id " +
-		// trans.backward(i));
+		// if (SCC.remainingVertices) {
+		// System.out.println("Starting Backward \n");
+		//
+		// SCCBackward backward = new SCCBackward();
+		// GraphChiEngine<SCCInfo, BiDirLabel> engine2 = new
+		// GraphChiEngine<SCCInfo, BiDirLabel>(
+		// baseFilename, nShards);
+		// engine2.setVertexDataConverter(new SCCInfoConverter());
+		// engine2.setEdataConverter(new BiDirLabelConverter());
+		// engine2.setEnableScheduler(true);
+		// // engine.setSaveEdgefilesAfterInmemmode(true);
+		// engine2.run(backward, 1);
+		//
+		// int origNumShards = engine2.getIntervals().size();
+		//
+		// if (origNumShards > 1) {
+		// // TODO: Contract deleted edges
 		// }
+		// }
+	}
+
+	// logger.info("Ready. Going to output...");
+	//
+	// /* Process output. The output file has format <vertex-id,
+	// component-id> */
+	// LabelAnalysis.computeLabels(baseFilename, engine.numVertices(),
+	// engine.getVertexIdTranslate());
+	//
+	// logger.info("Finished. See file: " + baseFilename + ".components");
+
+	/*
+	 * [참고] Translating between the internal ids and original ids is easy using
+	 * the VertexIdTranslate class
+	 */
+	// VertexIdTranslate trans = engine.getVertexIdTranslate();
+	// for(int i=0; i < engine.numVertices(); i++) {
+	// System.out.println("Internal id " + i + " = original id " +
+	// trans.backward(i));
+	// }
+	// }
+
+}
+
+class GraphDebug implements GraphChiProgram<VertexValue, EdgeValue> {
+
+	@Override
+	public void update(ChiVertex<VertexValue, EdgeValue> vertex,
+			GraphChiContext context) {
+		VertexIdTranslate translator = SCC.engine.getVertexIdTranslate();
+
+		System.out.println(String.format("%s(%s) - %s", vertex.getId(),
+				translator.backward(vertex.getId()), vertex.getValue()
+						.getMinF()));
+
+	}
+
+	@Override
+	public void beginIteration(GraphChiContext ctx) {
+		// TODO Auto-generated method stub
+
+	}
+
+	@Override
+	public void endIteration(GraphChiContext ctx) {
+		// TODO Auto-generated method stub
+
+	}
+
+	@Override
+	public void beginInterval(GraphChiContext ctx, VertexInterval interval) {
+		// TODO Auto-generated method stub
+
+	}
+
+	@Override
+	public void endInterval(GraphChiContext ctx, VertexInterval interval) {
+		// TODO Auto-generated method stub
+
+	}
+
+	@Override
+	public void beginSubInterval(GraphChiContext ctx, VertexInterval interval) {
+		// TODO Auto-generated method stub
+
+	}
+
+	@Override
+	public void endSubInterval(GraphChiContext ctx, VertexInterval interval) {
+		// TODO Auto-generated method stub
+
 	}
 
 }
 
-class SCCForward implements GraphChiProgram<VertexInfo, EdgeValue> {
+class SCCForward implements GraphChiProgram<VertexValue, EdgeValue> {
 
 	@Override
-	public void update(ChiVertex<VertexInfo, EdgeValue> vertex,
+	public void update(ChiVertex<VertexValue, EdgeValue> vertex,
 			GraphChiContext context) {
 		if (SCC.firstIteration) {
-			vertex.setValue(new VertexInfo(vertex.getId()));
+			vertex.setValue(new VertexValue(vertex.getId()));
 		}
 
 		if (vertex.getValue().confirmed) {
@@ -153,10 +213,48 @@ class SCCForward implements GraphChiProgram<VertexInfo, EdgeValue> {
 
 		if (vertex.numInEdges() == 0 || vertex.numOutEdges() == 0) {
 			if (vertex.numEdges() > 0) {
-				vertex.setValue(new VertexInfo(vertex.getId(), true));
+				vertex.setValue(new VertexValue(vertex.getId(), true));
 			}
 			VertexUtil.removeAllEdges(vertex);
 			return;
+		}
+
+		SCC.remainingVertices = true;
+
+		VertexValue vertexData = vertex.getValue();
+		boolean propagate = false;
+
+		if (context.getIteration() == 0) {
+			vertexData = new VertexValue();
+			vertexData.updateMinF(vertex.getId());
+			propagate = true;
+		} else {
+			int minid = vertexData.getMinF();
+			for (int i = 0; i < vertex.numInEdges(); i++) {
+				if (!vertex.inEdge(i).getValue().deleted()) {
+					minid = Math.min(minid, vertex.inEdge(i).getValue()
+							.getMinValue());
+				}
+			}
+
+			if (minid != vertexData.getMinF()) {
+				vertexData.updateMinF(minid);
+				propagate = true;
+			}
+		}
+		vertex.setValue(vertexData);
+
+		if (propagate) {
+			for (int i = 0; i < vertex.numOutEdges(); i++) {
+				EdgeValue edgeData = vertex.outEdge(i).getValue();
+
+				if (!edgeData.deleted()) {
+					edgeData.updateMinValue(vertexData.getMinF());
+					vertex.outEdge(i).setValue(edgeData);
+					context.getScheduler().addTask(
+							vertex.outEdge(i).getVertexId());
+				}
+			}
 		}
 
 	}
@@ -196,10 +294,10 @@ class SCCForward implements GraphChiProgram<VertexInfo, EdgeValue> {
 
 }
 
-class SCCBackward implements GraphChiProgram<VertexInfo, EdgeValue> {
+class SCCBackward implements GraphChiProgram<VertexValue, EdgeValue> {
 
 	@Override
-	public void update(ChiVertex<VertexInfo, EdgeValue> vertex,
+	public void update(ChiVertex<VertexValue, EdgeValue> vertex,
 			GraphChiContext context) {
 		// if (vertex.getValue().confirmed) {
 		// return;
@@ -296,7 +394,7 @@ class SCCBackward implements GraphChiProgram<VertexInfo, EdgeValue> {
 class EdgeValue implements Serializable {
 	private static final long serialVersionUID = -6638107748426892170L;
 	public static final int DELETED = -1;
-	public int minValue;
+	public int minValue = Integer.MAX_VALUE;
 
 	public void updateMinValue(int value) {
 		if (value < minValue) {
@@ -343,28 +441,56 @@ class EdgeValueConverter implements BytesToValueConverter<EdgeValue> {
 
 }
 
-class VertexInfo {
+class VertexValue {
 	public int color;
 	public boolean confirmed;
-	public int minF;
-	public int minB;
+	private int minF;
+	private int minB;
 
-	public VertexInfo() {
+	public VertexValue() {
 		this.color = 0;
 		this.confirmed = false;
 		this.minF = Integer.MAX_VALUE;
 		this.minB = Integer.MAX_VALUE;
 	}
 
-	public VertexInfo(int color) {
+	public VertexValue(int color) {
 		this();
 		this.color = color;
 	}
 
-	public VertexInfo(int color, boolean confirmed) {
+	public VertexValue(int color, boolean confirmed) {
 		this();
 		this.color = color;
 		this.confirmed = confirmed;
+	}
+
+	public int getMinF() {
+		return minF;
+	}
+
+	public void setMinF(int value) {
+		minF = value;
+	}
+
+	public void updateMinF(int value) {
+		if (value < minF) {
+			minF = value;
+		}
+	}
+
+	public int getMinB() {
+		return minB;
+	}
+
+	public void setMinB(int value) {
+		minB = value;
+	}
+
+	public void updateMinB(int value) {
+		if (value < minB) {
+			minB = value;
+		}
 	}
 
 	@Override
@@ -373,7 +499,7 @@ class VertexInfo {
 	}
 }
 
-class VertexInfoConverter implements BytesToValueConverter<VertexInfo> {
+class VertexInfoConverter implements BytesToValueConverter<VertexValue> {
 
 	@Override
 	public int sizeOf() {
@@ -381,7 +507,7 @@ class VertexInfoConverter implements BytesToValueConverter<VertexInfo> {
 	}
 
 	@Override
-	public VertexInfo getValue(byte[] array) {
+	public VertexValue getValue(byte[] array) {
 		IntConverter intConverter = new IntConverter();
 
 		byte[] colorByte = ArrayUtils.subarray(array, 0, 4);
@@ -397,15 +523,15 @@ class VertexInfoConverter implements BytesToValueConverter<VertexInfo> {
 		byte[] minBByte = ArrayUtils.subarray(array, 12, 16);
 		int minB = intConverter.getValue(minBByte);
 
-		VertexInfo info = new VertexInfo(color, confirmed);
-		info.minF = minF;
-		info.minB = minB;
+		VertexValue info = new VertexValue(color, confirmed);
+		info.setMinF(minF);
+		info.setMinB(minB);
 
 		return info;
 	}
 
 	@Override
-	public void setValue(byte[] array, VertexInfo val) {
+	public void setValue(byte[] array, VertexValue val) {
 		IntConverter intConverter = new IntConverter();
 
 		byte[] colorByte = new byte[4];
@@ -415,10 +541,10 @@ class VertexInfoConverter implements BytesToValueConverter<VertexInfo> {
 		intConverter.setValue(confirmedByte, val.confirmed ? 1 : 0);
 
 		byte[] minFByte = new byte[4];
-		intConverter.setValue(minFByte, val.minF);
+		intConverter.setValue(minFByte, val.getMinF());
 
 		byte[] minBByte = new byte[4];
-		intConverter.setValue(minBByte, val.minB);
+		intConverter.setValue(minBByte, val.getMinB());
 
 		array[0] = colorByte[0];
 		array[1] = colorByte[1];
@@ -444,13 +570,13 @@ class VertexInfoConverter implements BytesToValueConverter<VertexInfo> {
 }
 
 class VertexUtil {
-	public static void removeAllEdges(ChiVertex<VertexInfo, EdgeValue> vertex) {
+	public static void removeAllEdges(ChiVertex<VertexValue, EdgeValue> vertex) {
 		// remove all edges of the vertex
 		removeAllInEdges(vertex);
 		removeAllOutEdges(vertex);
 	}
 
-	public static void removeAllInEdges(ChiVertex<VertexInfo, EdgeValue> vertex) {
+	public static void removeAllInEdges(ChiVertex<VertexValue, EdgeValue> vertex) {
 		for (int i = 0; i < vertex.numInEdges(); i++) {
 			ChiEdge<EdgeValue> e = vertex.inEdge(i);
 			EdgeValue val = e.getValue();
@@ -459,7 +585,8 @@ class VertexUtil {
 		}
 	}
 
-	public static void removeAllOutEdges(ChiVertex<VertexInfo, EdgeValue> vertex) {
+	public static void removeAllOutEdges(
+			ChiVertex<VertexValue, EdgeValue> vertex) {
 		for (int i = 0; i < vertex.numOutEdges(); i++) {
 			ChiEdge<EdgeValue> e = vertex.outEdge(i);
 			EdgeValue val = e.getValue();
