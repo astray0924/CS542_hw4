@@ -157,15 +157,14 @@ class GraphDebug implements GraphChiProgram<VertexValue, EdgeValue> {
 			GraphChiContext context) {
 		VertexIdTranslate translator = SCC.engine.getVertexIdTranslate();
 
-		System.out.println(String.format("%s(%s) - %s", vertex.getId(),
-				translator.backward(vertex.getId()), vertex.getValue()
-						.getMinF()));
-		
-		for (int i = 0; i < vertex.numOutEdges(); i++) {
-			EdgeValue e = vertex.getOutEdgeValue(i);
-			
-			System.out.println(String.format("%s => %s", e.from, e.to));
-		}
+		System.out.println(String.format("%s - MinF: %s", vertex.getId(),
+				vertex.getValue().getMinF()));
+
+		// for (int i = 0; i < vertex.numInEdges(); i++) {
+		// EdgeValue e = vertex.inEdge(i).getValue();
+		//
+		// System.out.println(String.format("%s => %s", e.from, e.to));
+		// }
 
 	}
 
@@ -213,7 +212,9 @@ class SCCForward implements GraphChiProgram<VertexValue, EdgeValue> {
 	public void update(ChiVertex<VertexValue, EdgeValue> vertex,
 			GraphChiContext context) {
 		if (SCC.firstIteration) {
-			vertex.setValue(new VertexValue(vertex.getId()));
+			VertexValue vertexValue = new VertexValue();
+			vertexValue.updateMinF(vertex.getId());
+			vertex.setValue(vertexValue);
 		}
 
 		if (vertex.getValue().confirmed) {
@@ -226,6 +227,9 @@ class SCCForward implements GraphChiProgram<VertexValue, EdgeValue> {
 				vertex.setValue(new VertexValue(vertex.getId(), true));
 			}
 			VertexUtil.removeAllEdges(vertex);
+			
+			System.out.println(String.format("Dangling: %s", vertex.getId()));
+			
 			return;
 		}
 
