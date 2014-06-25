@@ -21,23 +21,12 @@ import edu.cmu.graphchi.preprocessing.FastSharder;
 import edu.cmu.graphchi.preprocessing.VertexProcessor;
 import edu.cmu.graphchi.util.LabelAnalysis;
 
-/**
- * Example application for computing the weakly connected components of a graph.
- * The algorithm uses label exchange: each vertex first chooses a label equaling
- * its id; on the subsequent iterations each vertex sets its label to be the
- * minimum of the neighbors' labels and its current label. Algorithm finishes
- * when no labels change. Each vertex with same label belongs to same component.
- * 
- * @author akyrola
- */
-
 public class SCC {
 
 	private static Logger logger = ChiLogger.getLogger("SCC");
 
 	// 프로그램에서 직접 사용
 	public static int superstep = 0;
-	public static int CONTRACTED_GRAPH_OUTPUT = 0;
 	public static boolean firstIteration = true;
 	public static boolean remainingVertices = true;
 
@@ -51,18 +40,19 @@ public class SCC {
 	 * @return
 	 * @throws java.io.IOException
 	 */
-	protected static FastSharder<SCCInfo, BiDirLabel> createSharder(
+	protected static FastSharder<VertexInfo, EdgeValue> createSharder(
 			String graphName, int numShards) throws IOException {
-		return new FastSharder<SCCInfo, BiDirLabel>(graphName, numShards,
-				new VertexProcessor<SCCInfo>() {
-					public SCCInfo receiveVertexValue(int vertexId, String token) {
-						return new SCCInfo();
+		return new FastSharder<VertexInfo, EdgeValue>(graphName, numShards,
+				new VertexProcessor<VertexInfo>() {
+					public VertexInfo receiveVertexValue(int vertexId,
+							String token) {
+						return new VertexInfo();
 					}
-				}, new EdgeProcessor<BiDirLabel>() {
-					public BiDirLabel receiveEdge(int from, int to, String token) {
-						return new BiDirLabel();
+				}, new EdgeProcessor<EdgeValue>() {
+					public EdgeValue receiveEdge(int from, int to, String token) {
+						return new EdgeValue();
 					}
-				}, new SCCInfoConverter(), new BiDirLabelConverter());
+				}, new VertexInfoConverter(), new EdgeValueConverter());
 	}
 
 	/**
@@ -90,51 +80,49 @@ public class SCC {
 		}
 
 		/* Run GraphChi ... */
-		GraphChiEngine<SCCInfo, BiDirLabel> engine = null;
+		GraphChiEngine<VertexInfo, EdgeValue> engine = null;
 		while (SCC.remainingVertices) {
 			System.out.println("Starting Superstep: " + SCC.superstep + "\n");
 			SCC.superstep++;
 			SCC.remainingVertices = false;
 
 			SCCForward forward = new SCCForward();
-			engine = new GraphChiEngine<SCCInfo, BiDirLabel>(baseFilename,
+			engine = new GraphChiEngine<VertexInfo, EdgeValue>(baseFilename,
 					nShards);
-			engine.setVertexDataConverter(new SCCInfoConverter());
-			engine.setEdataConverter(new BiDirLabelConverter());
+			engine.setVertexDataConverter(new VertexInfoConverter());
+			engine.setEdataConverter(new EdgeValueConverter());
 			engine.setEnableScheduler(true);
-			// if (SCC.firstIteration) {
-			// // Reset vertexData
+			engine.run(forward, 1000);
+
+			// if (SCC.remainingVertices) {
+			// System.out.println("Starting Backward \n");
+			//
+			// SCCBackward backward = new SCCBackward();
+			// GraphChiEngine<SCCInfo, BiDirLabel> engine2 = new
+			// GraphChiEngine<SCCInfo, BiDirLabel>(
+			// baseFilename, nShards);
+			// engine2.setVertexDataConverter(new SCCInfoConverter());
+			// engine2.setEdataConverter(new BiDirLabelConverter());
+			// engine2.setEnableScheduler(true);
+			// // engine.setSaveEdgefilesAfterInmemmode(true);
+			// engine2.run(backward, 1);
+			//
+			// int origNumShards = engine2.getIntervals().size();
+			//
+			// if (origNumShards > 1) {
+			// // TODO: Contract deleted edges
 			// }
-			// engine.setSaveEdgefilesAfterInmemmode(true);
-			engine.run(forward, 1);
-
-			if (SCC.remainingVertices) {
-				System.out.println("Starting Backward \n");
-
-				SCCBackward backward = new SCCBackward();
-				GraphChiEngine<SCCInfo, BiDirLabel> engine2 = new GraphChiEngine<SCCInfo, BiDirLabel>(
-						baseFilename, nShards);
-				engine2.setVertexDataConverter(new SCCInfoConverter());
-				engine2.setEdataConverter(new BiDirLabelConverter());
-				engine2.setEnableScheduler(true);
-				// engine.setSaveEdgefilesAfterInmemmode(true);
-				engine2.run(backward, 1);
-
-				int origNumShards = engine2.getIntervals().size();
-
-				if (origNumShards > 1) {
-					// TODO: Contract deleted edges
-				}
-			}
+			// }
 		}
 
-		logger.info("Ready. Going to output...");
-
-		/* Process output. The output file has format <vertex-id, component-id> */
-		LabelAnalysis.computeLabels(baseFilename, engine.numVertices(),
-				engine.getVertexIdTranslate());
-
-		logger.info("Finished. See file: " + baseFilename + ".components");
+		// logger.info("Ready. Going to output...");
+		//
+		// /* Process output. The output file has format <vertex-id,
+		// component-id> */
+		// LabelAnalysis.computeLabels(baseFilename, engine.numVertices(),
+		// engine.getVertexIdTranslate());
+		//
+		// logger.info("Finished. See file: " + baseFilename + ".components");
 
 		/*
 		 * [참고] Translating between the internal ids and original ids is easy
@@ -149,93 +137,32 @@ public class SCC {
 
 }
 
-class SCCForward implements GraphChiProgram<SCCInfo, BiDirLabel> {
+class SCCForward implements GraphChiProgram<VertexInfo, EdgeValue> {
 
 	@Override
-	public void update(ChiVertex<SCCInfo, BiDirLabel> vertex,
+	public void update(ChiVertex<VertexInfo, EdgeValue> vertex,
 			GraphChiContext context) {
 		if (SCC.firstIteration) {
-			vertex.setValue(new SCCInfo(vertex.getId()));
+			vertex.setValue(new VertexInfo(vertex.getId()));
 		}
 
 		if (vertex.getValue().confirmed) {
 			VertexUtil.removeAllEdges(vertex);
-			
-//			System.out.println("Confirmed: " + vertex.getId() + "\n");
-
 			return;
 		}
 
 		if (vertex.numInEdges() == 0 || vertex.numOutEdges() == 0) {
 			if (vertex.numEdges() > 0) {
-				vertex.setValue(new SCCInfo(vertex.getId(), true));
+				vertex.setValue(new VertexInfo(vertex.getId(), true));
 			}
-
 			VertexUtil.removeAllEdges(vertex);
-			
-//			System.out.println("Redundant: " + vertex.getId() + "\n");
-			
 			return;
 		}
 
-		SCC.remainingVertices = true;
-
-		SCCInfo vertexData = vertex.getValue();
-		boolean propagate = false;
-		if (context.getIteration() == 0) {
-			/*
-			 * TODO: 검증 필요 [원본] vertexData = vertex.getId()
-			 */
-			vertexData = new SCCInfo(vertex.getId());
-			propagate = true;
-
-			// Clean up in-edges. This would be nicer in the messaging
-			// abstraction...
-			for (int i = 0; i < vertex.numInEdges(); i++) {
-				BiDirLabel edgeData = vertex.inEdge(i).getValue();
-				if (!edgeData.deleted()) {
-					edgeData.setMyLabel(vertex.getId(), vertex.inEdge(i)
-							.getVertexId(), vertex.getId());
-					vertex.inEdge(i).setValue(edgeData);
-				}
-			}
-		} else {
-			int minid = vertexData.color;
-			for (int i = 0; i < vertex.numInEdges(); i++) {
-				if (!vertex.inEdge(i).getValue().deleted()) {
-					minid = Math.min(
-							minid,
-							vertex.inEdge(i)
-									.getValue()
-									.getNeighborLabel(vertex.getId(),
-											vertex.inEdge(i).getVertexId()));
-				}
-			}
-
-			if (minid != vertexData.color) {
-				vertexData.color = minid;
-				propagate = true;
-			}
-		}
-		vertex.setValue(vertexData);
-
-		if (propagate) {
-			for (int i = 0; i < vertex.numOutEdges(); i++) {
-				BiDirLabel edgeData = vertex.outEdge(i).getValue();
-				if (!edgeData.deleted()) {
-					edgeData.setMyLabel(vertex.getId(), vertex.outEdge(i)
-							.getVertexId(), vertexData.color);
-					vertex.outEdge(i).setValue(edgeData);
-					context.getScheduler().addTask(
-							vertex.outEdge(i).getVertexId());
-				}
-			}
-		}
 	}
 
 	@Override
 	public void beginIteration(GraphChiContext ctx) {
-		// TODO Auto-generated method stub
 
 	}
 
@@ -247,13 +174,11 @@ class SCCForward implements GraphChiProgram<SCCInfo, BiDirLabel> {
 
 	@Override
 	public void beginInterval(GraphChiContext ctx, VertexInterval interval) {
-		// TODO Auto-generated method stub
 
 	}
 
 	@Override
 	public void endInterval(GraphChiContext ctx, VertexInterval interval) {
-		// TODO Auto-generated method stub
 
 	}
 
@@ -271,62 +196,62 @@ class SCCForward implements GraphChiProgram<SCCInfo, BiDirLabel> {
 
 }
 
-class SCCBackward implements GraphChiProgram<SCCInfo, BiDirLabel> {
+class SCCBackward implements GraphChiProgram<VertexInfo, EdgeValue> {
 
 	@Override
-	public void update(ChiVertex<SCCInfo, BiDirLabel> vertex,
+	public void update(ChiVertex<VertexInfo, EdgeValue> vertex,
 			GraphChiContext context) {
-		if (vertex.getValue().confirmed) {
-			return;
-		}
-
-		SCCInfo vertexData = vertex.getValue();
-		boolean propagate = false;
-
-		if (context.getIteration() == 0) {
-			// "Leader" of the SCC
-			if (vertexData.color == vertex.getId()) {
-				propagate = true;
-				VertexUtil.removeAllOutEdges(vertex);
-			}
-		} else {
-			// Loop over in-edges and see if there is a match
-			boolean match = false;
-			for (int i = 0; i < vertex.numOutEdges(); i++) {
-				if (!vertex.outEdge(i).getValue().deleted()) {
-					if (vertex
-							.outEdge(i)
-							.getValue()
-							.getNeighborLabel(vertex.getId(),
-									vertex.outEdge(i).getVertexId()) == vertexData.color) {
-						match = true;
-
-						break;
-					}
-				}
-			}
-
-			if (match) {
-				propagate = true;
-				VertexUtil.removeAllOutEdges(vertex);
-				vertex.setValue(new SCCInfo(vertexData.color, true));
-			} else {
-				vertex.setValue(new SCCInfo(vertex.getId(), false));
-			}
-		}
-
-		if (propagate) {
-			for (int i = 0; i < vertex.numInEdges(); i++) {
-				BiDirLabel edgeData = vertex.inEdge(i).getValue();
-				if (!edgeData.deleted()) {
-					edgeData.setMyLabel(vertex.getId(), vertex.inEdge(i)
-							.getVertexId(), vertexData.color);
-					vertex.inEdge(i).setValue(edgeData);
-					context.getScheduler().addTask(
-							vertex.inEdge(i).getVertexId());
-				}
-			}
-		}
+		// if (vertex.getValue().confirmed) {
+		// return;
+		// }
+		//
+		// SCCInfo vertexData = vertex.getValue();
+		// boolean propagate = false;
+		//
+		// if (context.getIteration() == 0) {
+		// // "Leader" of the SCC
+		// if (vertexData.color == vertex.getId()) {
+		// propagate = true;
+		// VertexUtil.removeAllOutEdges(vertex);
+		// }
+		// } else {
+		// // Loop over in-edges and see if there is a match
+		// boolean match = false;
+		// for (int i = 0; i < vertex.numOutEdges(); i++) {
+		// if (!vertex.outEdge(i).getValue().deleted()) {
+		// if (vertex
+		// .outEdge(i)
+		// .getValue()
+		// .getNeighborLabel(vertex.getId(),
+		// vertex.outEdge(i).getVertexId()) == vertexData.color) {
+		// match = true;
+		//
+		// break;
+		// }
+		// }
+		// }
+		//
+		// if (match) {
+		// propagate = true;
+		// VertexUtil.removeAllOutEdges(vertex);
+		// vertex.setValue(new SCCInfo(vertexData.color, true));
+		// } else {
+		// vertex.setValue(new SCCInfo(vertex.getId(), false));
+		// }
+		// }
+		//
+		// if (propagate) {
+		// for (int i = 0; i < vertex.numInEdges(); i++) {
+		// BiDirLabel edgeData = vertex.inEdge(i).getValue();
+		// if (!edgeData.deleted()) {
+		// edgeData.setMyLabel(vertex.getId(), vertex.inEdge(i)
+		// .getVertexId(), vertexData.color);
+		// vertex.inEdge(i).setValue(edgeData);
+		// context.getScheduler().addTask(
+		// vertex.inEdge(i).getVertexId());
+		// }
+		// }
+		// }
 
 	}
 
@@ -368,149 +293,95 @@ class SCCBackward implements GraphChiProgram<SCCInfo, BiDirLabel> {
 
 }
 
-class BiDirLabel implements Serializable {
+class EdgeValue implements Serializable {
 	private static final long serialVersionUID = -6638107748426892170L;
 	public static final int DELETED = -1;
-	public int smallerOne;
-	public int largerOne;
+	public int minValue;
 
-	public void setNeighborLabel(int myid, int nbid, int newValue) {
-		if (myid < nbid) {
-			largerOne = newValue;
-		} else {
-			smallerOne = newValue;
+	public void updateMinValue(int value) {
+		if (value < minValue) {
+			minValue = value;
 		}
 	}
 
-	public Integer getNeighborLabel(int myid, int nbid) {
-		if (myid < nbid) {
-			return largerOne;
-		} else {
-			return smallerOne;
-		}
-	}
-
-	public void setMyLabel(int myid, int nbid, int newValue) {
-		if (myid < nbid) {
-			smallerOne = newValue;
-		} else {
-			largerOne = newValue;
-		}
-	}
-
-	public Integer getMyLabel(int myid, int nbid) {
-		if (myid < nbid) {
-			return smallerOne;
-		} else {
-			return largerOne;
-		}
+	public int getMinValue() {
+		return minValue;
 	}
 
 	public boolean deleted() {
-		return (smallerOne == DELETED);
+		return (minValue == DELETED);
 	}
 
 	@Override
 	public String toString() {
-		return String.format("%d, %d", smallerOne, largerOne);
+		return String.format("%d", minValue);
 	}
 }
 
-class BiDirLabelConverter implements BytesToValueConverter<BiDirLabel> {
+class EdgeValueConverter implements BytesToValueConverter<EdgeValue> {
 
 	@Override
 	public int sizeOf() {
-		return 8;
+		return 4;
 	}
 
 	@Override
-	public BiDirLabel getValue(byte[] array) {
+	public EdgeValue getValue(byte[] array) {
 		IntConverter intConverter = new IntConverter();
 
-		BiDirLabel val = new BiDirLabel();
-
-		byte[] smaller = ArrayUtils.subarray(array, 0, 4);
-		val.smallerOne = intConverter.getValue(smaller);
-
-		byte[] larger = ArrayUtils.subarray(array, 4, 8);
-		val.largerOne = intConverter.getValue(larger);
+		EdgeValue val = new EdgeValue();
+		val.minValue = intConverter.getValue(array);
 
 		return val;
 	}
 
 	@Override
-	public void setValue(byte[] array, BiDirLabel val) {
+	public void setValue(byte[] array, EdgeValue val) {
 		IntConverter intConverter = new IntConverter();
-
-		byte[] smaller = new byte[4];
-		intConverter.setValue(smaller, val.smallerOne);
-
-		byte[] larger = new byte[4];
-		intConverter.setValue(larger, val.largerOne);
-
-		array[0] = smaller[0];
-		array[1] = smaller[1];
-		array[2] = smaller[2];
-		array[3] = smaller[3];
-		array[4] = larger[0];
-		array[5] = larger[1];
-		array[6] = larger[2];
-		array[7] = larger[3];
-
+		intConverter.setValue(array, val.minValue);
 	}
 
 }
 
-class SCCInfo {
+class VertexInfo {
 	public int color;
 	public boolean confirmed;
+	public int minF;
+	public int minB;
 
-	public int getColor() {
-		return color;
-	}
-
-	public void setColor(int color) {
-		this.color = color;
-	}
-
-	public boolean isConfirmed() {
-		return confirmed;
-	}
-
-	public void setConfirmed(boolean confirmed) {
-		this.confirmed = confirmed;
-	}
-
-	public SCCInfo() {
+	public VertexInfo() {
 		this.color = 0;
 		this.confirmed = false;
+		this.minF = Integer.MAX_VALUE;
+		this.minB = Integer.MAX_VALUE;
 	}
 
-	public SCCInfo(int color) {
+	public VertexInfo(int color) {
+		this();
 		this.color = color;
-		this.confirmed = false;
 	}
 
-	public SCCInfo(int color, boolean confirmed) {
+	public VertexInfo(int color, boolean confirmed) {
+		this();
 		this.color = color;
 		this.confirmed = confirmed;
 	}
 
 	@Override
 	public String toString() {
-		return String.format("%s, %s", color, confirmed);
+		return String.format("%s, %s, %s, %s", color, minF, minB, confirmed);
 	}
 }
 
-class SCCInfoConverter implements BytesToValueConverter<SCCInfo> {
+class VertexInfoConverter implements BytesToValueConverter<VertexInfo> {
 
 	@Override
 	public int sizeOf() {
-		return 8;
+		return 16;
 	}
 
 	@Override
-	public SCCInfo getValue(byte[] array) {
+	public VertexInfo getValue(byte[] array) {
 		IntConverter intConverter = new IntConverter();
 
 		byte[] colorByte = ArrayUtils.subarray(array, 0, 4);
@@ -520,11 +391,21 @@ class SCCInfoConverter implements BytesToValueConverter<SCCInfo> {
 		boolean confirmed = (intConverter.getValue(confirmedByte) == 0) ? false
 				: true;
 
-		return new SCCInfo(color, confirmed);
+		byte[] minFByte = ArrayUtils.subarray(array, 8, 12);
+		int minF = intConverter.getValue(minFByte);
+
+		byte[] minBByte = ArrayUtils.subarray(array, 12, 16);
+		int minB = intConverter.getValue(minBByte);
+
+		VertexInfo info = new VertexInfo(color, confirmed);
+		info.minF = minF;
+		info.minB = minB;
+
+		return info;
 	}
 
 	@Override
-	public void setValue(byte[] array, SCCInfo val) {
+	public void setValue(byte[] array, VertexInfo val) {
 		IntConverter intConverter = new IntConverter();
 
 		byte[] colorByte = new byte[4];
@@ -533,39 +414,57 @@ class SCCInfoConverter implements BytesToValueConverter<SCCInfo> {
 		byte[] confirmedByte = new byte[4];
 		intConverter.setValue(confirmedByte, val.confirmed ? 1 : 0);
 
+		byte[] minFByte = new byte[4];
+		intConverter.setValue(minFByte, val.minF);
+
+		byte[] minBByte = new byte[4];
+		intConverter.setValue(minBByte, val.minB);
+
 		array[0] = colorByte[0];
 		array[1] = colorByte[1];
 		array[2] = colorByte[2];
 		array[3] = colorByte[3];
+
 		array[4] = confirmedByte[0];
 		array[5] = confirmedByte[1];
 		array[6] = confirmedByte[2];
 		array[7] = confirmedByte[3];
+
+		array[8] = minFByte[0];
+		array[9] = minFByte[1];
+		array[10] = minFByte[2];
+		array[11] = minFByte[3];
+
+		array[12] = minBByte[0];
+		array[13] = minBByte[1];
+		array[14] = minBByte[2];
+		array[15] = minBByte[3];
 	}
 
 }
 
 class VertexUtil {
-	public static void removeAllEdges(ChiVertex<SCCInfo, BiDirLabel> vertex) {
+	public static void removeAllEdges(ChiVertex<VertexInfo, EdgeValue> vertex) {
 		// remove all edges of the vertex
-		for (int i = 0; i < vertex.numInEdges(); i++) {
-			ChiEdge<BiDirLabel> e = vertex.inEdge(i);
-			e.getValue().largerOne = BiDirLabel.DELETED;
-			e.getValue().smallerOne = BiDirLabel.DELETED;
-		}
+		removeAllInEdges(vertex);
+		removeAllOutEdges(vertex);
+	}
 
-		for (int i = 0; i < vertex.numOutEdges(); i++) {
-			ChiEdge<BiDirLabel> e = vertex.outEdge(i);
-			e.getValue().largerOne = BiDirLabel.DELETED;
-			e.getValue().smallerOne = BiDirLabel.DELETED;
+	public static void removeAllInEdges(ChiVertex<VertexInfo, EdgeValue> vertex) {
+		for (int i = 0; i < vertex.numInEdges(); i++) {
+			ChiEdge<EdgeValue> e = vertex.inEdge(i);
+			EdgeValue val = e.getValue();
+			val.minValue = EdgeValue.DELETED;
+			e.setValue(val);
 		}
 	}
 
-	public static void removeAllOutEdges(ChiVertex<SCCInfo, BiDirLabel> vertex) {
+	public static void removeAllOutEdges(ChiVertex<VertexInfo, EdgeValue> vertex) {
 		for (int i = 0; i < vertex.numOutEdges(); i++) {
-			ChiEdge<BiDirLabel> e = vertex.outEdge(i);
-			e.getValue().largerOne = BiDirLabel.DELETED;
-			e.getValue().smallerOne = BiDirLabel.DELETED;
+			ChiEdge<EdgeValue> e = vertex.outEdge(i);
+			EdgeValue val = e.getValue();
+			val.minValue = EdgeValue.DELETED;
+			e.setValue(val);
 		}
 	}
 }

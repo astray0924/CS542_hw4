@@ -4,41 +4,43 @@ import org.junit.Before;
 import org.junit.Test;
 
 public class ByteConverterTest {
-	private SCCInfo vertexValue;
-	private BiDirLabel edgeValue;
+	private VertexInfo vertexValue;
+	private EdgeValue edgeValue;
 
 	@Before
 	public void setUp() throws Exception {
 		// vertexValue
-		vertexValue = new SCCInfo(100, true);
+		vertexValue = new VertexInfo(100, true);
+		vertexValue.minB = 100;
+		vertexValue.minF = 1000;
 
 		// edgeValue
-		edgeValue = new BiDirLabel();
-		edgeValue.smallerOne = 100;
-		edgeValue.largerOne = 1000;
+		edgeValue = new EdgeValue();
+		edgeValue.minValue = 100;
 	}
 
 	@Test
-	public void testBiDirLabelConverter() {
-		BiDirLabelConverter converter = new BiDirLabelConverter();
+	public void testEdgeValueConverter() {
+		EdgeValueConverter converter = new EdgeValueConverter();
 		byte[] array = new byte[converter.sizeOf()];
 		converter.setValue(array, edgeValue);
-		BiDirLabel newValue = converter.getValue(array);
+		EdgeValue newValue = converter.getValue(array);
 		
-		assertEquals(edgeValue.smallerOne, newValue.smallerOne);
-		assertEquals(edgeValue.largerOne, newValue.largerOne);
+		assertEquals(edgeValue.minValue, newValue.minValue);
 
 	}
 
 	@Test
 	public void testSCCInfoConverter() {
-		SCCInfoConverter converter = new SCCInfoConverter();
+		VertexInfoConverter converter = new VertexInfoConverter();
 		byte[] array = new byte[converter.sizeOf()];
 		converter.setValue(array, vertexValue);
-		SCCInfo newValue = converter.getValue(array);
+		VertexInfo newValue = converter.getValue(array);
 		
 		assertEquals(vertexValue.color, newValue.color);
 		assertEquals(vertexValue.confirmed, newValue.confirmed);
+		assertEquals(vertexValue.minB, newValue.minB);
+		assertEquals(vertexValue.minF, newValue.minF);
 	}
 
 }
