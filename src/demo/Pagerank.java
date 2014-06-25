@@ -132,7 +132,7 @@ public class Pagerank implements GraphChiProgram<Float, Float> {
 		engine.setVertexDataConverter(new FloatConverter());
 		engine.setModifiesInedges(false); // Important optimization
 
-		engine.run(new Pagerank(), 4);
+		engine.run(new Pagerank(), 10);
 
 		logger.info("Ready.");
 
