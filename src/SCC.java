@@ -330,26 +330,52 @@ class SCCInfo {
 		this.color = color;
 		this.confirmed = confirmed;
 	}
+
+	@Override
+	public String toString() {
+		return String.format("%s, %s", color, confirmed);
+	}
 }
 
 class SCCInfoConverter implements BytesToValueConverter<SCCInfo> {
 
 	@Override
 	public int sizeOf() {
-		// TODO Auto-generated method stub
-		return 0;
+		return 8;
 	}
 
 	@Override
 	public SCCInfo getValue(byte[] array) {
-		// TODO Auto-generated method stub
-		return null;
+		IntConverter intConverter = new IntConverter();
+
+		byte[] colorByte = ArrayUtils.subarray(array, 0, 4);
+		int color = intConverter.getValue(colorByte);
+
+		byte[] confirmedByte = ArrayUtils.subarray(array, 4, 8);
+		boolean confirmed = (intConverter.getValue(confirmedByte) == 0) ? false
+				: true;
+
+		return new SCCInfo(color, confirmed);
 	}
 
 	@Override
 	public void setValue(byte[] array, SCCInfo val) {
-		// TODO Auto-generated method stub
+		IntConverter intConverter = new IntConverter();
 
+		byte[] colorByte = new byte[4];
+		intConverter.setValue(colorByte, val.color);
+
+		byte[] confirmedByte = new byte[4];
+		intConverter.setValue(confirmedByte, val.confirmed ? 1 : 0);
+		
+		array[0] = colorByte[0];
+		array[1] = colorByte[1];
+		array[2] = colorByte[2];
+		array[3] = colorByte[3];
+		array[4] = confirmedByte[0];
+		array[5] = confirmedByte[1];
+		array[6] = confirmedByte[2];
+		array[7] = confirmedByte[3];
 	}
 
 }
