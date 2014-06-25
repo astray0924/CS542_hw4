@@ -3,6 +3,7 @@ import java.io.FileInputStream;
 import java.io.IOException;
 import java.util.logging.Logger;
 
+import edu.cmu.graphchi.ChiEdge;
 import edu.cmu.graphchi.ChiFilenames;
 import edu.cmu.graphchi.ChiLogger;
 import edu.cmu.graphchi.ChiVertex;
@@ -24,44 +25,101 @@ import edu.cmu.graphchi.preprocessing.VertexProcessor;
  * 
  * @author akyrola
  */
-public class SCC implements GraphChiProgram<Integer, Integer> {
+
+public class SCC {
 
 	private static Logger logger = ChiLogger.getLogger("SCC");
 
-	//
+	// 프로그램에서 직접 사용
 	private static int superstep = 0;
-	private static int CONTRACTED_GRAPH_OUTPUT;
+	private static int CONTRACTED_GRAPH_OUTPUT = 0;
+	private static boolean firstIteration = true;
+	private static boolean remainingVertices = true;
 
-	public void update(ChiVertex<Integer, Integer> vertex,
-			GraphChiContext context) {
-		final int iteration = context.getIteration();
-		final int numEdges = vertex.numEdges();
+	private static class VertexUtil {
+		public static void removeAllEdges(ChiVertex<SCCInfo, BiDirLabel> vertex) {
+			if (vertex.numEdges() > 0) {
+				// remove all edges of the vertex
+				for (int i = 0; i < vertex.numInEdges(); i++) {
+					ChiEdge<BiDirLabel> e = vertex.inEdge(i);
+					e.getValue().largerOne = null;
+					e.getValue().smallerOne = null;
+				}
 
-		vertex.setValue(iteration);
-
-		// System.out.println(vertex.getId() + "\t" + vertex.numInEdges() + "\t"
-		// + vertex.numOutEdges());
+				for (int i = 0; i < vertex.numOutEdges(); i++) {
+					ChiEdge<BiDirLabel> e = vertex.outEdge(i);
+					e.getValue().largerOne = null;
+					e.getValue().smallerOne = null;
+				}
+			}
+		}
 	}
 
-	public void beginIteration(GraphChiContext ctx) {
-		final int iteration = ctx.getIteration();
+	private class SCCForward implements GraphChiProgram<SCCInfo, BiDirLabel> {
 
-		System.out.println(iteration);
-	}
+		@Override
+		public void update(ChiVertex<SCCInfo, BiDirLabel> vertex,
+				GraphChiContext context) {
+			if (firstIteration) {
+				vertex.setValue(new SCCInfo(vertex.getId()));
+			}
 
-	public void endIteration(GraphChiContext ctx) {
-	}
+			if (vertex.getValue().confirmed) {
+				VertexUtil.removeAllEdges(vertex);
 
-	public void beginInterval(GraphChiContext ctx, VertexInterval interval) {
-	}
+				return;
+			}
 
-	public void endInterval(GraphChiContext ctx, VertexInterval interval) {
-	}
+			if (vertex.numInEdges() == 0 || vertex.numOutEdges() == 0) {
+				if (vertex.numEdges() > 0) {
+					vertex.setValue(new SCCInfo(vertex.getId(), true));
+				}
 
-	public void beginSubInterval(GraphChiContext ctx, VertexInterval interval) {
-	}
+				VertexUtil.removeAllEdges(vertex);
+				return;
+			}
 
-	public void endSubInterval(GraphChiContext ctx, VertexInterval interval) {
+			remainingVertices = true;
+
+		}
+
+		@Override
+		public void beginIteration(GraphChiContext ctx) {
+			// TODO Auto-generated method stub
+
+		}
+
+		@Override
+		public void endIteration(GraphChiContext ctx) {
+			// TODO Auto-generated method stub
+
+		}
+
+		@Override
+		public void beginInterval(GraphChiContext ctx, VertexInterval interval) {
+			// TODO Auto-generated method stub
+
+		}
+
+		@Override
+		public void endInterval(GraphChiContext ctx, VertexInterval interval) {
+			// TODO Auto-generated method stub
+
+		}
+
+		@Override
+		public void beginSubInterval(GraphChiContext ctx,
+				VertexInterval interval) {
+			// TODO Auto-generated method stub
+
+		}
+
+		@Override
+		public void endSubInterval(GraphChiContext ctx, VertexInterval interval) {
+			// TODO Auto-generated method stub
+
+		}
+
 	}
 
 	/**
@@ -115,6 +173,22 @@ public class SCC implements GraphChiProgram<Integer, Integer> {
 		private int color;
 		private boolean confirmed;
 
+		public int getColor() {
+			return color;
+		}
+
+		public void setColor(int color) {
+			this.color = color;
+		}
+
+		public boolean isConfirmed() {
+			return confirmed;
+		}
+
+		public void setConfirmed(boolean confirmed) {
+			this.confirmed = confirmed;
+		}
+
 		public SCCInfo() {
 			this.color = 0;
 			this.confirmed = false;
@@ -161,7 +235,7 @@ public class SCC implements GraphChiProgram<Integer, Integer> {
 		engine.setEdataConverter(new IntConverter());
 		engine.setVertexDataConverter(new IntConverter());
 		engine.setEnableScheduler(true);
-		engine.run(new SCC(), 10);
+		// engine.run(new SCC(), 10);
 
 	}
 }
