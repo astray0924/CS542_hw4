@@ -50,7 +50,11 @@ public class SCC {
 					}
 				}, new EdgeProcessor<EdgeValue>() {
 					public EdgeValue receiveEdge(int from, int to, String token) {
-						return new EdgeValue();
+						EdgeValue edgeValue = new EdgeValue();
+						edgeValue.from = from;
+						edgeValue.to = to;
+
+						return edgeValue;
 					}
 				}, new VertexInfoConverter(), new EdgeValueConverter());
 	}
@@ -156,6 +160,12 @@ class GraphDebug implements GraphChiProgram<VertexValue, EdgeValue> {
 		System.out.println(String.format("%s(%s) - %s", vertex.getId(),
 				translator.backward(vertex.getId()), vertex.getValue()
 						.getMinF()));
+		
+		for (int i = 0; i < vertex.numOutEdges(); i++) {
+			EdgeValue e = vertex.getOutEdgeValue(i);
+			
+			System.out.println(String.format("%s => %s", e.from, e.to));
+		}
 
 	}
 
@@ -395,6 +405,8 @@ class EdgeValue implements Serializable {
 	private static final long serialVersionUID = -6638107748426892170L;
 	public static final int DELETED = -1;
 	public int minValue = Integer.MAX_VALUE;
+	public int from = -1;
+	public int to = -1;
 
 	public void updateMinValue(int value) {
 		if (value < minValue) {
@@ -420,7 +432,7 @@ class EdgeValueConverter implements BytesToValueConverter<EdgeValue> {
 
 	@Override
 	public int sizeOf() {
-		return 4;
+		return 12;
 	}
 
 	@Override
@@ -428,7 +440,9 @@ class EdgeValueConverter implements BytesToValueConverter<EdgeValue> {
 		IntConverter intConverter = new IntConverter();
 
 		EdgeValue val = new EdgeValue();
-		val.minValue = intConverter.getValue(array);
+		val.minValue = intConverter.getValue(ArrayUtils.subarray(array, 0, 4));
+		val.from = intConverter.getValue(ArrayUtils.subarray(array, 4, 8));
+		val.to = intConverter.getValue(ArrayUtils.subarray(array, 8, 12));
 
 		return val;
 	}
@@ -437,6 +451,20 @@ class EdgeValueConverter implements BytesToValueConverter<EdgeValue> {
 	public void setValue(byte[] array, EdgeValue val) {
 		IntConverter intConverter = new IntConverter();
 		intConverter.setValue(array, val.minValue);
+
+		byte[] fromByte = new byte[4];
+		intConverter.setValue(fromByte, val.from);
+		array[4] = fromByte[0];
+		array[5] = fromByte[1];
+		array[6] = fromByte[2];
+		array[7] = fromByte[3];
+
+		byte[] toByte = new byte[4];
+		intConverter.setValue(toByte, val.to);
+		array[8] = toByte[0];
+		array[9] = toByte[1];
+		array[10] = toByte[2];
+		array[11] = toByte[3];
 	}
 
 }
