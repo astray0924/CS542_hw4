@@ -108,9 +108,10 @@ class GraphDebug implements GraphChiProgram<VertexValue, EdgeValue> {
 			GraphChiContext context) {
 		VertexIdTranslate translator = SCC.engine.getVertexIdTranslate();
 
-		System.out.println(String.format("%s - MinF: %s / MinB: %s", vertex
-				.getId(), vertex.getValue().getMinF(), vertex.getValue()
-				.getMinB()));
+		System.out.println(String.format(
+				"%s - MinF: %s / MinB: %s / Color: %s", vertex.getId(), vertex
+						.getValue().getMinF(), vertex.getValue().getMinB(),
+				vertex.getValue().color));
 
 		// for (int i = 0; i < vertex.numInEdges(); i++) {
 		// EdgeValue e = vertex.inEdge(i).getValue();
@@ -282,16 +283,26 @@ class SCCBackward implements GraphChiProgram<VertexValue, EdgeValue> {
 			// "Leader" of the SCC
 			if (vertexData.getMinF() == vertex.getId()) {
 				vertexData.setMinB(vertex.getId());
+				vertexData.color = vertex.getId();
 				vertex.setValue(vertexData);
 				VertexUtil.removeAllOutEdges(vertex);
 				propagate = true;
+				
+//				System.out.println("Leader: " + vertex.getId());
 			}
+			
 		} else {
 			boolean match = false;
+			
 			for (int i = 0; i < vertex.numOutEdges(); i++) {
+				int minval = vertexData.getMinB();
+				
 				if (!vertex.outEdge(i).getValue().deleted()) {
 					int bVal = vertex.outEdge(i).getValue().getMinB();
-					vertexData.updateMinB(bVal);
+					
+					minval = Math.min(minval, bVal);
+					
+					vertexData.updateMinB(minval);
 					vertex.setValue(vertexData);
 
 					if (vertex.getValue().getMinF() == vertex.getValue()
@@ -330,18 +341,6 @@ class SCCBackward implements GraphChiProgram<VertexValue, EdgeValue> {
 				}
 			}
 		}
-
-		// if (propagate) {
-		// for (int i = 0; i < vertex.numInEdges(); i++) {
-		// EdgeValue edgeData = vertex.inEdge(i).getValue();
-		// if (!edgeData.deleted()) {
-		// edgeData.updateMinB(vertex.getValue().getMinB());
-		// vertex.inEdge(i).setValue(edgeData);
-		// context.getScheduler().addTask(
-		// vertex.inEdge(i).getVertexId());
-		// }
-		// }
-		// }
 
 	}
 
