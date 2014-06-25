@@ -90,7 +90,7 @@ public class SCC {
 		engine.setVertexDataConverter(new VertexInfoConverter());
 		engine.setEdataConverter(new EdgeValueConverter());
 		engine.setEnableScheduler(true);
-		engine.run(forward, 1);
+		engine.run(forward, 5);
 
 		engine.run(new GraphDebug(), 1);
 		// GraphChiEngine<VertexInfo, EdgeValue> engine = null;
@@ -224,11 +224,13 @@ class SCCForward implements GraphChiProgram<VertexValue, EdgeValue> {
 
 		if (vertex.numInEdges() == 0 || vertex.numOutEdges() == 0) {
 			if (vertex.numEdges() > 0) {
-				vertex.setValue(new VertexValue(vertex.getId(), true));
+				VertexValue value = new VertexValue();
+				value.confirmed = true;
+				value.updateMinF(vertex.getId());
+				VertexUtil.removeAllEdges(vertex);
 			}
-			VertexUtil.removeAllEdges(vertex);
 			
-			System.out.println(String.format("Dangling: %s", vertex.getId()));
+//			System.out.println(String.format("Dangling: %s", vertex.getId()));
 			
 			return;
 		}
@@ -239,8 +241,8 @@ class SCCForward implements GraphChiProgram<VertexValue, EdgeValue> {
 		boolean propagate = false;
 
 		if (context.getIteration() == 0) {
-			vertexData = new VertexValue();
-			vertexData.updateMinF(vertex.getId());
+//			vertexData = new VertexValue();
+//			vertexData.updateMinF(vertex.getId());
 			propagate = true;
 		} else {
 			int minid = vertexData.getMinF();
