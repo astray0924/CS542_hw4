@@ -4,19 +4,22 @@ import org.junit.Before;
 import org.junit.Test;
 
 public class ByteConverterTest {
-	private VertexInfo vertexValue;
+	private VertexValue vertexValue;
 	private EdgeValue edgeValue;
 
 	@Before
 	public void setUp() throws Exception {
 		// vertexValue
-		vertexValue = new VertexInfo(100, true);
-		vertexValue.minB = 100;
-		vertexValue.minF = 1000;
+		vertexValue = new VertexValue(100, true);
+		vertexValue.setMinB(100);
+		vertexValue.setMinF(1000);
+		vertexValue.id = 201;
 
 		// edgeValue
 		edgeValue = new EdgeValue();
 		edgeValue.minValue = 100;
+		edgeValue.from = 1;
+		edgeValue.to = 2;
 	}
 
 	@Test
@@ -25,8 +28,10 @@ public class ByteConverterTest {
 		byte[] array = new byte[converter.sizeOf()];
 		converter.setValue(array, edgeValue);
 		EdgeValue newValue = converter.getValue(array);
-		
+
 		assertEquals(edgeValue.minValue, newValue.minValue);
+		assertEquals(edgeValue.from, newValue.from);
+		assertEquals(edgeValue.to, newValue.to);
 
 	}
 
@@ -35,12 +40,13 @@ public class ByteConverterTest {
 		VertexInfoConverter converter = new VertexInfoConverter();
 		byte[] array = new byte[converter.sizeOf()];
 		converter.setValue(array, vertexValue);
-		VertexInfo newValue = converter.getValue(array);
-		
+		VertexValue newValue = converter.getValue(array);
+
 		assertEquals(vertexValue.color, newValue.color);
 		assertEquals(vertexValue.confirmed, newValue.confirmed);
-		assertEquals(vertexValue.minB, newValue.minB);
-		assertEquals(vertexValue.minF, newValue.minF);
+		assertEquals(vertexValue.getMinB(), newValue.getMinB());
+		assertEquals(vertexValue.getMinF(), newValue.getMinF());
+		assertEquals(vertexValue.id, newValue.id);
 	}
 
 }
