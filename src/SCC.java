@@ -19,6 +19,7 @@ import edu.cmu.graphchi.engine.VertexInterval;
 import edu.cmu.graphchi.preprocessing.EdgeProcessor;
 import edu.cmu.graphchi.preprocessing.FastSharder;
 import edu.cmu.graphchi.preprocessing.VertexProcessor;
+import edu.cmu.graphchi.util.LabelAnalysis;
 
 /**
  * Example application for computing the weakly connected components of a graph.
@@ -89,14 +90,15 @@ public class SCC {
 		}
 
 		/* Run GraphChi ... */
+		GraphChiEngine<SCCInfo, BiDirLabel> engine = null;
 		while (SCC.remainingVertices) {
 			System.out.println("Starting Superstep: " + SCC.superstep + "\n");
 			SCC.superstep++;
 			SCC.remainingVertices = false;
 
 			SCCForward forward = new SCCForward();
-			GraphChiEngine<SCCInfo, BiDirLabel> engine = new GraphChiEngine<SCCInfo, BiDirLabel>(
-					baseFilename, nShards);
+			engine = new GraphChiEngine<SCCInfo, BiDirLabel>(baseFilename,
+					nShards);
 			engine.setVertexDataConverter(new SCCInfoConverter());
 			engine.setEdataConverter(new BiDirLabelConverter());
 			engine.setEnableScheduler(true);
@@ -104,7 +106,7 @@ public class SCC {
 			// // Reset vertexData
 			// }
 			// engine.setSaveEdgefilesAfterInmemmode(true);
-			engine.run(forward, 1000);
+			engine.run(forward, 1);
 
 			if (SCC.remainingVertices) {
 				System.out.println("Starting Backward \n");
@@ -112,17 +114,37 @@ public class SCC {
 				SCCBackward backward = new SCCBackward();
 				GraphChiEngine<SCCInfo, BiDirLabel> engine2 = new GraphChiEngine<SCCInfo, BiDirLabel>(
 						baseFilename, nShards);
+				engine2.setVertexDataConverter(new SCCInfoConverter());
+				engine2.setEdataConverter(new BiDirLabelConverter());
+				engine2.setEnableScheduler(true);
 				// engine.setSaveEdgefilesAfterInmemmode(true);
-				engine2.run(backward, 1000);
-				
+				engine2.run(backward, 1);
+
 				int origNumShards = engine2.getIntervals().size();
-				
+
 				if (origNumShards > 1) {
-					// Contract deleted edges
+					// TODO: Contract deleted edges
 				}
 			}
 		}
 
+		logger.info("Ready. Going to output...");
+
+		/* Process output. The output file has format <vertex-id, component-id> */
+		LabelAnalysis.computeLabels(baseFilename, engine.numVertices(),
+				engine.getVertexIdTranslate());
+
+		logger.info("Finished. See file: " + baseFilename + ".components");
+
+		/*
+		 * [참고] Translating between the internal ids and original ids is easy
+		 * using the VertexIdTranslate class
+		 */
+		// VertexIdTranslate trans = engine.getVertexIdTranslate();
+		// for(int i=0; i < engine.numVertices(); i++) {
+		// System.out.println("Internal id " + i + " = original id " +
+		// trans.backward(i));
+		// }
 	}
 
 }
@@ -138,6 +160,8 @@ class SCCForward implements GraphChiProgram<SCCInfo, BiDirLabel> {
 
 		if (vertex.getValue().confirmed) {
 			VertexUtil.removeAllEdges(vertex);
+			
+//			System.out.println("Confirmed: " + vertex.getId() + "\n");
 
 			return;
 		}
@@ -148,6 +172,9 @@ class SCCForward implements GraphChiProgram<SCCInfo, BiDirLabel> {
 			}
 
 			VertexUtil.removeAllEdges(vertex);
+			
+//			System.out.println("Redundant: " + vertex.getId() + "\n");
+			
 			return;
 		}
 
@@ -260,7 +287,7 @@ class SCCBackward implements GraphChiProgram<SCCInfo, BiDirLabel> {
 			// "Leader" of the SCC
 			if (vertexData.color == vertex.getId()) {
 				propagate = true;
-				VertexUtil.removeAllEdges(vertex);
+				VertexUtil.removeAllOutEdges(vertex);
 			}
 		} else {
 			// Loop over in-edges and see if there is a match
@@ -281,7 +308,7 @@ class SCCBackward implements GraphChiProgram<SCCInfo, BiDirLabel> {
 
 			if (match) {
 				propagate = true;
-				VertexUtil.removeAllEdges(vertex);
+				VertexUtil.removeAllOutEdges(vertex);
 				vertex.setValue(new SCCInfo(vertexData.color, true));
 			} else {
 				vertex.setValue(new SCCInfo(vertex.getId(), false));
@@ -520,19 +547,25 @@ class SCCInfoConverter implements BytesToValueConverter<SCCInfo> {
 
 class VertexUtil {
 	public static void removeAllEdges(ChiVertex<SCCInfo, BiDirLabel> vertex) {
-		if (vertex.numEdges() > 0) {
-			// remove all edges of the vertex
-			for (int i = 0; i < vertex.numInEdges(); i++) {
-				ChiEdge<BiDirLabel> e = vertex.inEdge(i);
-				e.getValue().largerOne = BiDirLabel.DELETED;
-				e.getValue().smallerOne = BiDirLabel.DELETED;
-			}
+		// remove all edges of the vertex
+		for (int i = 0; i < vertex.numInEdges(); i++) {
+			ChiEdge<BiDirLabel> e = vertex.inEdge(i);
+			e.getValue().largerOne = BiDirLabel.DELETED;
+			e.getValue().smallerOne = BiDirLabel.DELETED;
+		}
 
-			for (int i = 0; i < vertex.numOutEdges(); i++) {
-				ChiEdge<BiDirLabel> e = vertex.outEdge(i);
-				e.getValue().largerOne = BiDirLabel.DELETED;
-				e.getValue().smallerOne = BiDirLabel.DELETED;
-			}
+		for (int i = 0; i < vertex.numOutEdges(); i++) {
+			ChiEdge<BiDirLabel> e = vertex.outEdge(i);
+			e.getValue().largerOne = BiDirLabel.DELETED;
+			e.getValue().smallerOne = BiDirLabel.DELETED;
+		}
+	}
+
+	public static void removeAllOutEdges(ChiVertex<SCCInfo, BiDirLabel> vertex) {
+		for (int i = 0; i < vertex.numOutEdges(); i++) {
+			ChiEdge<BiDirLabel> e = vertex.outEdge(i);
+			e.getValue().largerOne = BiDirLabel.DELETED;
+			e.getValue().smallerOne = BiDirLabel.DELETED;
 		}
 	}
 }
