@@ -289,9 +289,9 @@ class SCCBackward implements GraphChiProgram<VertexValue, EdgeValue> {
 		} else {
 			// Loop over in-edges and see if there is a match
 			boolean match = false;
-			for (int i = 0; i < vertex.numInEdges(); i++) {
-				if (!vertex.inEdge(i).getValue().deleted()) {
-					int bVal = vertex.inEdge(i).getValue().minB;
+			for (int i = 0; i < vertex.numOutEdges(); i++) {
+				if (!vertex.outEdge(i).getValue().deleted()) {
+					int bVal = vertex.outEdge(i).getValue().getMinB();
 					vertexData.updateMinB(bVal);
 					vertex.setValue(vertexData);
 
@@ -309,8 +309,26 @@ class SCCBackward implements GraphChiProgram<VertexValue, EdgeValue> {
 			} else {
 				vertex.setValue(new VertexValue(vertex.getId(), false));
 			}
+			
+//			bool match = false;
+//            for(int i=0; i < vertex.num_outedges(); i++) {
+//                if (!vertex.outedge(i)->get_data().deleted()) {
+//                    if (vertex.outedge(i)->get_data().neighbor_label(vertex.id(), vertex.outedge(i)->vertexid) == vertexdata.color) {
+//                        match = true;
+//                        
+//                        break;
+//                    }
+//                }
+//            }
+//            if (match) {
+//                propagate = true;
+//                vertex.remove_alloutedges();
+//                vertex.set_data(SCCinfo(vertexdata.color, true));
+//            } else {
+//                vertex.set_data(SCCinfo(vertex.id(), false));
+//            }
 		}
-
+		
 		if (propagate) {
 			for (int i = 0; i < vertex.numInEdges(); i++) {
 				EdgeValue edgeData = vertex.inEdge(i).getValue();
