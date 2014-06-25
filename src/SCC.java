@@ -260,11 +260,15 @@ class BiDirLabelConverter implements BytesToValueConverter<BiDirLabel> {
 
 	@Override
 	public BiDirLabel getValue(byte[] array) {
+		IntConverter intConverter = new IntConverter();
+
 		BiDirLabel val = new BiDirLabel();
-		val.smallerOne = ((array[3] & 0xff) << 24) + ((array[2] & 0xff) << 16)
-				+ ((array[1] & 0xff) << 8) + (array[0] & 0xff);
-		val.largerOne = ((array[7] & 0xff) << 24) + ((array[6] & 0xff) << 16)
-				+ ((array[5] & 0xff) << 8) + (array[4] & 0xff);
+
+		byte[] smaller = ArrayUtils.subarray(array, 0, 4);
+		val.smallerOne = intConverter.getValue(smaller);
+
+		byte[] larger = ArrayUtils.subarray(array, 4, 8);
+		val.largerOne = intConverter.getValue(larger);
 
 		return val;
 	}
@@ -279,7 +283,14 @@ class BiDirLabelConverter implements BytesToValueConverter<BiDirLabel> {
 		byte[] larger = new byte[4];
 		intConverter.setValue(larger, val.largerOne);
 
-		array = ArrayUtils.addAll(smaller, larger);
+		array[0] = smaller[0];
+		array[1] = smaller[1];
+		array[2] = smaller[2];
+		array[3] = smaller[3];
+		array[4] = larger[0];
+		array[5] = larger[1];
+		array[6] = larger[2];
+		array[7] = larger[3];
 
 	}
 

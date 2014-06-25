@@ -7,7 +7,8 @@ public class ByteConverterTest {
 	@Before
 	public void setUp() throws Exception {
 		edgeValue = new BiDirLabel();
-		edgeValue.setMyLabel(10, 100, 10);
+		edgeValue.smallerOne = 100;
+		edgeValue.largerOne = 1000;
 	}
 
 	@Test
