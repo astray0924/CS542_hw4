@@ -128,7 +128,7 @@ class SCCForward implements GraphChiProgram<SCCInfo, BiDirLabel> {
 		boolean propagate = false;
 		if (context.getIteration() == 0) {
 			/*
-			 * TODO: 검증 필요 [원본] - vertecData = vertex.getId()
+			 * TODO: 검증 필요 [원본] vertexData = vertex.getId()
 			 */
 			vertexData = new SCCInfo(vertex.getId());
 			propagate = true;
@@ -140,6 +140,7 @@ class SCCForward implements GraphChiProgram<SCCInfo, BiDirLabel> {
 				if (!edgeData.deleted()) {
 					edgeData.setMyLabel(vertex.getId(), vertex.inEdge(i)
 							.getVertexId(), vertex.getId());
+					vertex.inEdge(i).setValue(edgeData);
 				}
 			}
 		} else {
@@ -158,6 +159,20 @@ class SCCForward implements GraphChiProgram<SCCInfo, BiDirLabel> {
 			if (minid != vertexData.color) {
 				vertexData.color = minid;
 				propagate = true;
+			}
+		}
+		vertex.setValue(vertexData);
+
+		if (propagate) {
+			for (int i = 0; i < vertex.numOutEdges(); i++) {
+				BiDirLabel edgeData = vertex.outEdge(i).getValue();
+				if (!edgeData.deleted()) {
+					edgeData.setMyLabel(vertex.getId(), vertex.outEdge(i)
+							.getVertexId(), vertexData.color);
+					vertex.outEdge(i).setValue(edgeData);
+					context.getScheduler().addTask(
+							vertex.outEdge(i).getVertexId());
+				}
 			}
 		}
 	}
