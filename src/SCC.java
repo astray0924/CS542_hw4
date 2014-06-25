@@ -287,7 +287,6 @@ class SCCBackward implements GraphChiProgram<VertexValue, EdgeValue> {
 				propagate = true;
 			}
 		} else {
-			// Loop over in-edges and see if there is a match
 			boolean match = false;
 			for (int i = 0; i < vertex.numOutEdges(); i++) {
 				if (!vertex.outEdge(i).getValue().deleted()) {
@@ -295,7 +294,8 @@ class SCCBackward implements GraphChiProgram<VertexValue, EdgeValue> {
 					vertexData.updateMinB(bVal);
 					vertex.setValue(vertexData);
 
-					if (vertexData.getMinF() == vertexData.getMinB()) {
+					if (vertex.getValue().getMinF() == vertex.getValue()
+							.getMinB()) {
 						match = true;
 						break;
 					}
@@ -305,41 +305,43 @@ class SCCBackward implements GraphChiProgram<VertexValue, EdgeValue> {
 			if (match) {
 				propagate = true;
 				VertexUtil.removeAllOutEdges(vertex);
-				vertex.setValue(new VertexValue(vertexData.getMinF(), true));
+
+				VertexValue val = vertex.getValue();
+				val.color = val.getMinB();
+				val.confirmed = true;
+				vertex.setValue(val);
 			} else {
-				vertex.setValue(new VertexValue(vertex.getId(), false));
+				VertexValue val = vertex.getValue();
+				val.color = vertex.getId();
+				val.confirmed = false;
+				vertex.setValue(val);
 			}
-			
-//			bool match = false;
-//            for(int i=0; i < vertex.num_outedges(); i++) {
-//                if (!vertex.outedge(i)->get_data().deleted()) {
-//                    if (vertex.outedge(i)->get_data().neighbor_label(vertex.id(), vertex.outedge(i)->vertexid) == vertexdata.color) {
-//                        match = true;
-//                        
-//                        break;
-//                    }
-//                }
-//            }
-//            if (match) {
-//                propagate = true;
-//                vertex.remove_alloutedges();
-//                vertex.set_data(SCCinfo(vertexdata.color, true));
-//            } else {
-//                vertex.set_data(SCCinfo(vertex.id(), false));
-//            }
 		}
-		
+
 		if (propagate) {
 			for (int i = 0; i < vertex.numInEdges(); i++) {
 				EdgeValue edgeData = vertex.inEdge(i).getValue();
 				if (!edgeData.deleted()) {
 					edgeData.updateMinB(vertex.getValue().getMinB());
 					vertex.inEdge(i).setValue(edgeData);
+
 					context.getScheduler().addTask(
 							vertex.inEdge(i).getVertexId());
 				}
 			}
 		}
+
+		// if (propagate) {
+		// for (int i = 0; i < vertex.numInEdges(); i++) {
+		// EdgeValue edgeData = vertex.inEdge(i).getValue();
+		// if (!edgeData.deleted()) {
+		// edgeData.updateMinB(vertex.getValue().getMinB());
+		// vertex.inEdge(i).setValue(edgeData);
+		// context.getScheduler().addTask(
+		// vertex.inEdge(i).getVertexId());
+		// }
+		// }
+		// }
 
 	}
 
