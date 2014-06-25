@@ -1,6 +1,3 @@
-import java.io.ByteArrayInputStream;
-import java.io.DataInput;
-import java.io.DataInputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
@@ -51,18 +48,18 @@ public class SCC {
 	 * @return
 	 * @throws java.io.IOException
 	 */
-	protected static FastSharder createSharder(String graphName, int numShards)
-			throws IOException {
-		return new FastSharder<Integer, Integer>(graphName, numShards,
-				new VertexProcessor<Integer>() {
-					public Integer receiveVertexValue(int vertexId, String token) {
-						return 0;
+	protected static FastSharder<SCCInfo, BiDirLabel> createSharder(
+			String graphName, int numShards) throws IOException {
+		return new FastSharder<SCCInfo, BiDirLabel>(graphName, numShards,
+				new VertexProcessor<SCCInfo>() {
+					public SCCInfo receiveVertexValue(int vertexId, String token) {
+						return new SCCInfo();
 					}
-				}, new EdgeProcessor<Integer>() {
-					public Integer receiveEdge(int from, int to, String token) {
-						return 0;
+				}, new EdgeProcessor<BiDirLabel>() {
+					public BiDirLabel receiveEdge(int from, int to, String token) {
+						return new BiDirLabel();
 					}
-				}, new IntConverter(), new IntConverter());
+				}, new SCCInfoConverter(), new BiDirLabelConverter());
 	}
 
 	/**
@@ -94,8 +91,8 @@ public class SCC {
 				baseFilename, nShards);
 		engine.setVertexDataConverter(new SCCInfoConverter());
 		engine.setEdataConverter(new BiDirLabelConverter());
-		engine.setEnableScheduler(true);
-		engine.run(new SCCForward(), 1000);
+		// engine.setEnableScheduler(true);
+		engine.run(new SCCForward(), 1);
 
 	}
 
@@ -367,7 +364,7 @@ class SCCInfoConverter implements BytesToValueConverter<SCCInfo> {
 
 		byte[] confirmedByte = new byte[4];
 		intConverter.setValue(confirmedByte, val.confirmed ? 1 : 0);
-		
+
 		array[0] = colorByte[0];
 		array[1] = colorByte[1];
 		array[2] = colorByte[2];
