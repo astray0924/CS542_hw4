@@ -16,7 +16,10 @@ public class ByteConverterTest {
 
 		// edgeValue
 		edgeValue = new EdgeValue();
-		edgeValue.minValue = 100;
+		edgeValue.minF = 100;
+		edgeValue.minB = 10000;
+		edgeValue.from = 1;
+		edgeValue.to = 2;
 	}
 
 	@Test
@@ -26,8 +29,10 @@ public class ByteConverterTest {
 		converter.setValue(array, edgeValue);
 		EdgeValue newValue = converter.getValue(array);
 		
-		assertEquals(edgeValue.minValue, newValue.minValue);
-
+		assertEquals(edgeValue.minF, newValue.minF);
+		assertEquals(edgeValue.minB, newValue.minB);
+		assertEquals(edgeValue.from, newValue.from);
+		assertEquals(edgeValue.to, newValue.to);
 	}
 
 	@Test
