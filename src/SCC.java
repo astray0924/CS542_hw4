@@ -40,6 +40,8 @@ public class SCC {
 	public static boolean firstIteration = true;
 	public static boolean remainingVertices = true;
 
+	// public static GraphChiEngine<SCCInfo, BiDirLabel> engine = null;
+
 	/**
 	 * Initialize the sharder-program.
 	 * 
@@ -87,12 +89,39 @@ public class SCC {
 		}
 
 		/* Run GraphChi ... */
-		GraphChiEngine<SCCInfo, BiDirLabel> engine = new GraphChiEngine<SCCInfo, BiDirLabel>(
-				baseFilename, nShards);
-		engine.setVertexDataConverter(new SCCInfoConverter());
-		engine.setEdataConverter(new BiDirLabelConverter());
-		// engine.setEnableScheduler(true);
-		engine.run(new SCCForward(), 1);
+		while (SCC.remainingVertices) {
+			System.out.println("Starting Superstep: " + SCC.superstep + "\n");
+			SCC.superstep++;
+			SCC.remainingVertices = false;
+
+			SCCForward forward = new SCCForward();
+			GraphChiEngine<SCCInfo, BiDirLabel> engine = new GraphChiEngine<SCCInfo, BiDirLabel>(
+					baseFilename, nShards);
+			engine.setVertexDataConverter(new SCCInfoConverter());
+			engine.setEdataConverter(new BiDirLabelConverter());
+			engine.setEnableScheduler(true);
+			// if (SCC.firstIteration) {
+			// // Reset vertexData
+			// }
+			// engine.setSaveEdgefilesAfterInmemmode(true);
+			engine.run(forward, 1000);
+
+			if (SCC.remainingVertices) {
+				System.out.println("Starting Backward \n");
+
+				SCCBackward backward = new SCCBackward();
+				GraphChiEngine<SCCInfo, BiDirLabel> engine2 = new GraphChiEngine<SCCInfo, BiDirLabel>(
+						baseFilename, nShards);
+				// engine.setSaveEdgefilesAfterInmemmode(true);
+				engine2.run(backward, 1000);
+				
+				int origNumShards = engine2.getIntervals().size();
+				
+				if (origNumShards > 1) {
+					// Contract deleted edges
+				}
+			}
+		}
 
 	}
 
@@ -186,6 +215,103 @@ class SCCForward implements GraphChiProgram<SCCInfo, BiDirLabel> {
 	@Override
 	public void endIteration(GraphChiContext ctx) {
 		SCC.firstIteration = false;
+
+	}
+
+	@Override
+	public void beginInterval(GraphChiContext ctx, VertexInterval interval) {
+		// TODO Auto-generated method stub
+
+	}
+
+	@Override
+	public void endInterval(GraphChiContext ctx, VertexInterval interval) {
+		// TODO Auto-generated method stub
+
+	}
+
+	@Override
+	public void beginSubInterval(GraphChiContext ctx, VertexInterval interval) {
+		// TODO Auto-generated method stub
+
+	}
+
+	@Override
+	public void endSubInterval(GraphChiContext ctx, VertexInterval interval) {
+		// TODO Auto-generated method stub
+
+	}
+
+}
+
+class SCCBackward implements GraphChiProgram<SCCInfo, BiDirLabel> {
+
+	@Override
+	public void update(ChiVertex<SCCInfo, BiDirLabel> vertex,
+			GraphChiContext context) {
+		if (vertex.getValue().confirmed) {
+			return;
+		}
+
+		SCCInfo vertexData = vertex.getValue();
+		boolean propagate = false;
+
+		if (context.getIteration() == 0) {
+			// "Leader" of the SCC
+			if (vertexData.color == vertex.getId()) {
+				propagate = true;
+				VertexUtil.removeAllEdges(vertex);
+			}
+		} else {
+			// Loop over in-edges and see if there is a match
+			boolean match = false;
+			for (int i = 0; i < vertex.numOutEdges(); i++) {
+				if (!vertex.outEdge(i).getValue().deleted()) {
+					if (vertex
+							.outEdge(i)
+							.getValue()
+							.getNeighborLabel(vertex.getId(),
+									vertex.outEdge(i).getVertexId()) == vertexData.color) {
+						match = true;
+
+						break;
+					}
+				}
+			}
+
+			if (match) {
+				propagate = true;
+				VertexUtil.removeAllEdges(vertex);
+				vertex.setValue(new SCCInfo(vertexData.color, true));
+			} else {
+				vertex.setValue(new SCCInfo(vertex.getId(), false));
+			}
+		}
+
+		if (propagate) {
+			for (int i = 0; i < vertex.numInEdges(); i++) {
+				BiDirLabel edgeData = vertex.inEdge(i).getValue();
+				if (!edgeData.deleted()) {
+					edgeData.setMyLabel(vertex.getId(), vertex.inEdge(i)
+							.getVertexId(), vertexData.color);
+					vertex.inEdge(i).setValue(edgeData);
+					context.getScheduler().addTask(
+							vertex.inEdge(i).getVertexId());
+				}
+			}
+		}
+
+	}
+
+	@Override
+	public void beginIteration(GraphChiContext ctx) {
+		// TODO Auto-generated method stub
+
+	}
+
+	@Override
+	public void endIteration(GraphChiContext ctx) {
+		// TODO Auto-generated method stub
 
 	}
 
