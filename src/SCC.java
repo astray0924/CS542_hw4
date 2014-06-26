@@ -108,17 +108,26 @@ class GraphDebug implements GraphChiProgram<VertexValue, EdgeValue> {
 			GraphChiContext context) {
 		VertexIdTranslate translator = SCC.engine.getVertexIdTranslate();
 
+//		debugVertex(vertex);
+
+		debugEdge(vertex);
+
+	}
+
+	private void debugVertex(ChiVertex<VertexValue, EdgeValue> vertex) {
 		System.out.println(String.format(
 				"%s - MinF: %s / MinB: %s / Color: %s", vertex.getId(), vertex
 						.getValue().getMinF(), vertex.getValue().getMinB(),
 				vertex.getValue().color));
+	}
 
-		// for (int i = 0; i < vertex.numInEdges(); i++) {
-		// EdgeValue e = vertex.inEdge(i).getValue();
-		//
-		// System.out.println(String.format("%s => %s", e.from, e.to));
-		// }
+	private void debugEdge(ChiVertex<VertexValue, EdgeValue> vertex) {
+		for (int i = 0; i < vertex.numOutEdges(); i++) {
+			EdgeValue e = vertex.outEdge(i).getValue();
 
+			System.out.println(String.format("%s => %s / minF: %s / minB : %s",
+					e.from, e.to, e.minF, e.minB));
+		}
 	}
 
 	@Override
@@ -276,71 +285,71 @@ class SCCBackward implements GraphChiProgram<VertexValue, EdgeValue> {
 		VertexValue vertexData = vertex.getValue();
 		boolean propagate = false;
 
-//		if (context.getIteration() == 0) {
-//			// Backward 하기 전에 미리 간선 정보를 초기화
-//			VertexUtil.resetAllEdges(vertex);
-//
-//			// "Leader" of the SCC
-//			if (vertexData.getMinF() == vertex.getId()) {
-//				vertexData.setMinB(vertex.getId());
-//				vertexData.color = vertex.getId();
-//				vertex.setValue(vertexData);
-//				VertexUtil.removeAllOutEdges(vertex);
-//				propagate = true;
-//				
-////				System.out.println("Leader: " + vertex.getId());
-//			}
-//			
-//		} else {
-//			boolean match = false;
-//			
-//			for (int i = 0; i < vertex.numOutEdges(); i++) {
-//				int minval = vertexData.getMinB();
-//				
-//				if (!vertex.outEdge(i).getValue().deleted()) {
-//					int bVal = vertex.outEdge(i).getValue().getMinB();
-//					
-//					minval = Math.min(minval, bVal);
-//					
-//					vertexData.updateMinB(minval);
-//					vertex.setValue(vertexData);
-//
-//					if (vertex.getValue().getMinF() == vertex.getValue()
-//							.getMinB()) {
-//						match = true;
-//						break;
-//					}
-//				}
-//			}
-//
-//			if (match) {
-//				propagate = true;
-//				VertexUtil.removeAllOutEdges(vertex);
-//
-//				VertexValue val = vertex.getValue();
-//				val.color = val.getMinB();
-//				val.confirmed = true;
-//				vertex.setValue(val);
-//			} else {
-//				VertexValue val = vertex.getValue();
-//				val.color = vertex.getId();
-//				val.confirmed = false;
-//				vertex.setValue(val);
-//			}
-//		}
-//
-//		if (propagate) {
-//			for (int i = 0; i < vertex.numInEdges(); i++) {
-//				EdgeValue edgeData = vertex.inEdge(i).getValue();
-//				if (!edgeData.deleted()) {
-//					edgeData.updateMinB(vertex.getValue().getMinB());
-//					vertex.inEdge(i).setValue(edgeData);
-//
-//					context.getScheduler().addTask(
-//							vertex.inEdge(i).getVertexId());
-//				}
-//			}
-//		}
+		// if (context.getIteration() == 0) {
+		// // Backward 하기 전에 미리 간선 정보를 초기화
+		// VertexUtil.resetAllEdges(vertex);
+		//
+		// // "Leader" of the SCC
+		// if (vertexData.getMinF() == vertex.getId()) {
+		// vertexData.setMinB(vertex.getId());
+		// vertexData.color = vertex.getId();
+		// vertex.setValue(vertexData);
+		// VertexUtil.removeAllOutEdges(vertex);
+		// propagate = true;
+		//
+		// // System.out.println("Leader: " + vertex.getId());
+		// }
+		//
+		// } else {
+		// boolean match = false;
+		//
+		// for (int i = 0; i < vertex.numOutEdges(); i++) {
+		// int minval = vertexData.getMinB();
+		//
+		// if (!vertex.outEdge(i).getValue().deleted()) {
+		// int bVal = vertex.outEdge(i).getValue().getMinB();
+		//
+		// minval = Math.min(minval, bVal);
+		//
+		// vertexData.updateMinB(minval);
+		// vertex.setValue(vertexData);
+		//
+		// if (vertex.getValue().getMinF() == vertex.getValue()
+		// .getMinB()) {
+		// match = true;
+		// break;
+		// }
+		// }
+		// }
+		//
+		// if (match) {
+		// propagate = true;
+		// VertexUtil.removeAllOutEdges(vertex);
+		//
+		// VertexValue val = vertex.getValue();
+		// val.color = val.getMinB();
+		// val.confirmed = true;
+		// vertex.setValue(val);
+		// } else {
+		// VertexValue val = vertex.getValue();
+		// val.color = vertex.getId();
+		// val.confirmed = false;
+		// vertex.setValue(val);
+		// }
+		// }
+		//
+		// if (propagate) {
+		// for (int i = 0; i < vertex.numInEdges(); i++) {
+		// EdgeValue edgeData = vertex.inEdge(i).getValue();
+		// if (!edgeData.deleted()) {
+		// edgeData.updateMinB(vertex.getValue().getMinB());
+		// vertex.inEdge(i).setValue(edgeData);
+		//
+		// context.getScheduler().addTask(
+		// vertex.inEdge(i).getVertexId());
+		// }
+		// }
+		// }
 
 	}
 
@@ -636,6 +645,7 @@ class VertexUtil {
 			ChiEdge<EdgeValue> e = vertex.inEdge(i);
 			EdgeValue val = e.getValue();
 			val.minF = EdgeValue.DELETED;
+			val.minB = EdgeValue.DELETED;
 			e.setValue(val);
 		}
 	}
@@ -646,6 +656,7 @@ class VertexUtil {
 			ChiEdge<EdgeValue> e = vertex.outEdge(i);
 			EdgeValue val = e.getValue();
 			val.minF = EdgeValue.DELETED;
+			val.minB = EdgeValue.DELETED;
 			e.setValue(val);
 		}
 	}
