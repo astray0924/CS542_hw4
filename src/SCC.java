@@ -122,48 +122,43 @@ class SCCBackward implements GraphChiProgram<VertexValue, EdgeValue> {
 				vertex.setValue(vertexData);
 				VertexUtil.removeAllOutEdges(vertex);
 				propagate = true;
-
-				// System.out.println("Leader: " + vertex.getId());
 			}
-		
+
+		} else {
+			boolean match = false;
+
+			for (int i = 0; i < vertex.numOutEdges(); i++) {
+				int minval = vertexData.getMinB();
+
+				if (!vertex.outEdge(i).getValue().deleted()) {
+					minval = Math.min(minval, vertex.outEdge(i).getValue()
+							.getMinB());
+					vertexData.updateMinB(minval);
+					vertex.setValue(vertexData);
+
+					if (vertex.getValue().getMinF() == vertex.getValue()
+							.getMinB()) {
+						match = true;
+						break;
+					}
+				}
+			}
+
+			if (match) {
+				propagate = true;
+				VertexUtil.removeAllOutEdges(vertex);
+
+				VertexValue val = vertex.getValue();
+				val.color = val.getMinB();
+				val.confirmed = true;
+				vertex.setValue(val);
+			} else {
+				VertexValue val = vertex.getValue();
+				val.color = vertex.getId();
+				val.confirmed = false;
+				vertex.setValue(val);
+			}
 		}
-//		 } else {
-		// boolean match = false;
-		//
-		// for (int i = 0; i < vertex.numOutEdges(); i++) {
-		// int minval = vertexData.getMinB();
-		//
-		// if (!vertex.outEdge(i).getValue().deleted()) {
-		// int bVal = vertex.outEdge(i).getValue().getMinB();
-		//
-		// minval = Math.min(minval, bVal);
-		//
-		// vertexData.updateMinB(minval);
-		// vertex.setValue(vertexData);
-		//
-		// if (vertex.getValue().getMinF() == vertex.getValue()
-		// .getMinB()) {
-		// match = true;
-		// break;
-		// }
-		// }
-		// }
-		//
-		// if (match) {
-		// propagate = true;
-		// VertexUtil.removeAllOutEdges(vertex);
-		//
-		// VertexValue val = vertex.getValue();
-		// val.color = val.getMinB();
-		// val.confirmed = true;
-		// vertex.setValue(val);
-		// } else {
-		// VertexValue val = vertex.getValue();
-		// val.color = vertex.getId();
-		// val.confirmed = false;
-		// vertex.setValue(val);
-		// }
-		// }
 
 		if (propagate) {
 			for (int i = 0; i < vertex.numInEdges(); i++) {
@@ -245,7 +240,7 @@ class GraphDebug implements GraphChiProgram<VertexValue, EdgeValue> {
 			System.out.println(String.format("%s => %s / minF: %s / minB : %s",
 					e.from, e.to, e.minF, e.minB));
 		}
-		
+
 		for (int i = 0; i < vertex.numInEdges(); i++) {
 			EdgeValue e = vertex.inEdge(i).getValue();
 
