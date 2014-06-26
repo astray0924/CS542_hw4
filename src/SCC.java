@@ -1,5 +1,7 @@
+import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.io.Serializable;
 import java.util.logging.Logger;
@@ -96,7 +98,7 @@ public class SCC {
 		engine.run(new SCCBackward(), 1000);
 
 		// Debug
-		engine.run(new GraphDebug(), 1);
+		engine.run(new DumpGraph(), 1);
 	}
 
 }
@@ -213,17 +215,36 @@ class SCCBackward implements GraphChiProgram<VertexValue, EdgeValue> {
 
 }
 
-class GraphDebug implements GraphChiProgram<VertexValue, EdgeValue> {
+class DumpGraph implements GraphChiProgram<VertexValue, EdgeValue> {
+	private VertexIdTranslate translator = SCC.engine.getVertexIdTranslate();
+	private BufferedWriter writer;
+
+	public DumpGraph() {
+		try {
+			writer = new BufferedWriter(new FileWriter("output/out.txt"));
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+	}
 
 	@Override
 	public void update(ChiVertex<VertexValue, EdgeValue> vertex,
 			GraphChiContext context) {
-		VertexIdTranslate translator = SCC.engine.getVertexIdTranslate();
+//		debugAll(vertex);
 
+		try {
+			writer.write(String.format("%s\t%s\n",
+					translator.backward(vertex.getId()),
+					vertex.getValue().color));
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+	}
+
+	private void debugAll(ChiVertex<VertexValue, EdgeValue> vertex) {
 		debugVertex(vertex);
 		debugEdge(vertex);
 		System.out.println("");
-
 	}
 
 	private void debugVertex(ChiVertex<VertexValue, EdgeValue> vertex) {
@@ -257,7 +278,11 @@ class GraphDebug implements GraphChiProgram<VertexValue, EdgeValue> {
 
 	@Override
 	public void endIteration(GraphChiContext ctx) {
-		// TODO Auto-generated method stub
+		try {
+			writer.close();
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
 
 	}
 
