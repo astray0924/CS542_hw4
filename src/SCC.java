@@ -92,10 +92,10 @@ public class SCC {
 		engine.setVertexDataConverter(new VertexInfoConverter());
 		engine.setEdataConverter(new EdgeValueConverter());
 		engine.setEnableScheduler(true);
-		engine.run(forward, 1000);
+		engine.run(forward, 10000);
 
 		// Backward
-		engine.run(new SCCBackward(), 1000);
+		engine.run(new SCCBackward(), 10000);
 
 		// Debug
 		engine.run(new DumpGraph(), 1);
