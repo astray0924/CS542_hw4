@@ -101,6 +101,123 @@ public class SCC {
 
 }
 
+class SCCBackward implements GraphChiProgram<VertexValue, EdgeValue> {
+
+	@Override
+	public void update(ChiVertex<VertexValue, EdgeValue> vertex,
+			GraphChiContext context) {
+		if (vertex.getValue().confirmed) {
+			return;
+		}
+
+		VertexValue vertexData = vertex.getValue();
+		boolean propagate = false;
+
+		if (context.getIteration() == 0) {
+
+			// "Leader" of the SCC
+			if (vertexData.getMinF() == vertex.getId()) {
+				vertexData.setMinB(vertex.getId());
+				vertexData.color = vertex.getId();
+				vertex.setValue(vertexData);
+				VertexUtil.removeAllOutEdges(vertex);
+				propagate = true;
+
+				// System.out.println("Leader: " + vertex.getId());
+			}
+		
+		}
+//		 } else {
+		// boolean match = false;
+		//
+		// for (int i = 0; i < vertex.numOutEdges(); i++) {
+		// int minval = vertexData.getMinB();
+		//
+		// if (!vertex.outEdge(i).getValue().deleted()) {
+		// int bVal = vertex.outEdge(i).getValue().getMinB();
+		//
+		// minval = Math.min(minval, bVal);
+		//
+		// vertexData.updateMinB(minval);
+		// vertex.setValue(vertexData);
+		//
+		// if (vertex.getValue().getMinF() == vertex.getValue()
+		// .getMinB()) {
+		// match = true;
+		// break;
+		// }
+		// }
+		// }
+		//
+		// if (match) {
+		// propagate = true;
+		// VertexUtil.removeAllOutEdges(vertex);
+		//
+		// VertexValue val = vertex.getValue();
+		// val.color = val.getMinB();
+		// val.confirmed = true;
+		// vertex.setValue(val);
+		// } else {
+		// VertexValue val = vertex.getValue();
+		// val.color = vertex.getId();
+		// val.confirmed = false;
+		// vertex.setValue(val);
+		// }
+		// }
+
+		if (propagate) {
+			for (int i = 0; i < vertex.numInEdges(); i++) {
+				EdgeValue edgeData = vertex.inEdge(i).getValue();
+				if (!edgeData.deleted()) {
+					edgeData.updateMinB(vertex.getValue().getMinB());
+					vertex.inEdge(i).setValue(edgeData);
+
+					context.getScheduler().addTask(
+							vertex.inEdge(i).getVertexId());
+				}
+			}
+		}
+
+	}
+
+	@Override
+	public void beginIteration(GraphChiContext ctx) {
+		// TODO Auto-generated method stub
+
+	}
+
+	@Override
+	public void endIteration(GraphChiContext ctx) {
+		// TODO Auto-generated method stub
+
+	}
+
+	@Override
+	public void beginInterval(GraphChiContext ctx, VertexInterval interval) {
+		// TODO Auto-generated method stub
+
+	}
+
+	@Override
+	public void endInterval(GraphChiContext ctx, VertexInterval interval) {
+		// TODO Auto-generated method stub
+
+	}
+
+	@Override
+	public void beginSubInterval(GraphChiContext ctx, VertexInterval interval) {
+		// TODO Auto-generated method stub
+
+	}
+
+	@Override
+	public void endSubInterval(GraphChiContext ctx, VertexInterval interval) {
+		// TODO Auto-generated method stub
+
+	}
+
+}
+
 class GraphDebug implements GraphChiProgram<VertexValue, EdgeValue> {
 
 	@Override
@@ -108,9 +225,9 @@ class GraphDebug implements GraphChiProgram<VertexValue, EdgeValue> {
 			GraphChiContext context) {
 		VertexIdTranslate translator = SCC.engine.getVertexIdTranslate();
 
-//		debugVertex(vertex);
-
+		debugVertex(vertex);
 		debugEdge(vertex);
+		System.out.println("");
 
 	}
 
@@ -124,6 +241,13 @@ class GraphDebug implements GraphChiProgram<VertexValue, EdgeValue> {
 	private void debugEdge(ChiVertex<VertexValue, EdgeValue> vertex) {
 		for (int i = 0; i < vertex.numOutEdges(); i++) {
 			EdgeValue e = vertex.outEdge(i).getValue();
+
+			System.out.println(String.format("%s => %s / minF: %s / minB : %s",
+					e.from, e.to, e.minF, e.minB));
+		}
+		
+		for (int i = 0; i < vertex.numInEdges(); i++) {
+			EdgeValue e = vertex.inEdge(i).getValue();
 
 			System.out.println(String.format("%s => %s / minF: %s / minB : %s",
 					e.from, e.to, e.minF, e.minB));
@@ -256,124 +380,6 @@ class SCCForward implements GraphChiProgram<VertexValue, EdgeValue> {
 
 	@Override
 	public void endInterval(GraphChiContext ctx, VertexInterval interval) {
-
-	}
-
-	@Override
-	public void beginSubInterval(GraphChiContext ctx, VertexInterval interval) {
-		// TODO Auto-generated method stub
-
-	}
-
-	@Override
-	public void endSubInterval(GraphChiContext ctx, VertexInterval interval) {
-		// TODO Auto-generated method stub
-
-	}
-
-}
-
-class SCCBackward implements GraphChiProgram<VertexValue, EdgeValue> {
-
-	@Override
-	public void update(ChiVertex<VertexValue, EdgeValue> vertex,
-			GraphChiContext context) {
-		if (vertex.getValue().confirmed) {
-			return;
-		}
-
-		VertexValue vertexData = vertex.getValue();
-		boolean propagate = false;
-
-		// if (context.getIteration() == 0) {
-		// // Backward 하기 전에 미리 간선 정보를 초기화
-		// VertexUtil.resetAllEdges(vertex);
-		//
-		// // "Leader" of the SCC
-		// if (vertexData.getMinF() == vertex.getId()) {
-		// vertexData.setMinB(vertex.getId());
-		// vertexData.color = vertex.getId();
-		// vertex.setValue(vertexData);
-		// VertexUtil.removeAllOutEdges(vertex);
-		// propagate = true;
-		//
-		// // System.out.println("Leader: " + vertex.getId());
-		// }
-		//
-		// } else {
-		// boolean match = false;
-		//
-		// for (int i = 0; i < vertex.numOutEdges(); i++) {
-		// int minval = vertexData.getMinB();
-		//
-		// if (!vertex.outEdge(i).getValue().deleted()) {
-		// int bVal = vertex.outEdge(i).getValue().getMinB();
-		//
-		// minval = Math.min(minval, bVal);
-		//
-		// vertexData.updateMinB(minval);
-		// vertex.setValue(vertexData);
-		//
-		// if (vertex.getValue().getMinF() == vertex.getValue()
-		// .getMinB()) {
-		// match = true;
-		// break;
-		// }
-		// }
-		// }
-		//
-		// if (match) {
-		// propagate = true;
-		// VertexUtil.removeAllOutEdges(vertex);
-		//
-		// VertexValue val = vertex.getValue();
-		// val.color = val.getMinB();
-		// val.confirmed = true;
-		// vertex.setValue(val);
-		// } else {
-		// VertexValue val = vertex.getValue();
-		// val.color = vertex.getId();
-		// val.confirmed = false;
-		// vertex.setValue(val);
-		// }
-		// }
-		//
-		// if (propagate) {
-		// for (int i = 0; i < vertex.numInEdges(); i++) {
-		// EdgeValue edgeData = vertex.inEdge(i).getValue();
-		// if (!edgeData.deleted()) {
-		// edgeData.updateMinB(vertex.getValue().getMinB());
-		// vertex.inEdge(i).setValue(edgeData);
-		//
-		// context.getScheduler().addTask(
-		// vertex.inEdge(i).getVertexId());
-		// }
-		// }
-		// }
-
-	}
-
-	@Override
-	public void beginIteration(GraphChiContext ctx) {
-		// TODO Auto-generated method stub
-
-	}
-
-	@Override
-	public void endIteration(GraphChiContext ctx) {
-		// TODO Auto-generated method stub
-
-	}
-
-	@Override
-	public void beginInterval(GraphChiContext ctx, VertexInterval interval) {
-		// TODO Auto-generated method stub
-
-	}
-
-	@Override
-	public void endInterval(GraphChiContext ctx, VertexInterval interval) {
-		// TODO Auto-generated method stub
 
 	}
 
